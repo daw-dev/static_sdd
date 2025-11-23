@@ -1,7 +1,8 @@
+use itertools::Itertools;
 use proc_macro::TokenStream;
-use proc_macro_error::{emit_call_site_warning, emit_error, proc_macro_error};
+use proc_macro_error::{emit_call_site_error, emit_error, emit_warning, proc_macro_error};
 use quote::quote;
-use syn::{parse_macro_input, spanned::Spanned, Item, ItemMod, Meta};
+use syn::{Item, ItemMod, Meta, parse_macro_input, spanned::Spanned};
 
 #[proc_macro_attribute]
 #[proc_macro_error]
@@ -44,7 +45,8 @@ pub fn grammar(_attr: TokenStream, item: TokenStream) -> TokenStream {
                             emit_error!(
                                 start_attr.span(),
                                 "only one start symbol is accepted, both {} and {} are declared as start symbol",
-                                sym, t.ident
+                                sym,
+                                t.ident
                             );
                         }
                         start_symbol = Some(t.ident.to_string());
@@ -83,8 +85,21 @@ pub fn grammar(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
+    if non_terminals.is_empty() || tokens.is_empty() || productions.is_empty() {
+        emit_call_site_error!(
+            "every grammar has to have some non-terminals, tokens and productions. Found non-terminals: [{}], tokens: [{}], productions: [{}]",
+            non_terminals.iter().format(","),
+            tokens.iter().format(","),
+            productions.iter().map(|m| format!("{:?}", m.mac.path)).format(","),
+        );
+    }
+
     if start_symbol.is_none() {
-        emit_call_site_warning!("no start symbol was declared, using {}", non_terminals[0]);
+        emit_warning!(
+            non_terminals[0].span(),
+            "no start symbol was declared, using {}",
+            non_terminals[0]
+        );
     }
 
     quote! {
@@ -93,7 +108,8 @@ pub fn grammar(_attr: TokenStream, item: TokenStream) -> TokenStream {
         pub fn parse() {
             println!("Hello World!");
         }
-    }.into()
+    }
+    .into()
 }
 
 /// Checks if a list of attributes contains a specific identifier (e.g., #[token])

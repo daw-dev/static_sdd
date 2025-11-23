@@ -14,3 +14,7 @@ production = { path = "crates/production" }
 [[example]]
 name = "addition"
 path = "./examples/addition/main.rs"
+
+[[example]]
+name = "ast"
+path = "./examples/ast/main.rs"
