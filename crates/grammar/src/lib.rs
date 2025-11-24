@@ -79,6 +79,8 @@ fn extract_token(item: &mut Item) -> Option<Token> {
                 }
                 None
             }) {
+                // TODO: maybe `token` should be an actual attribute that automatically creates the
+                // DFA?
                 let attr = attrs.remove(id);
                 let Meta::NameValue(name_value) = attr.meta else {
                     unreachable!()

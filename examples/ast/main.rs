@@ -8,9 +8,26 @@ mod ast {
         Plus,
     }
 
+    impl Operator {
+        fn compute_binary(self, left: usize, right: usize) -> usize {
+            match self {
+                Operator::Plus => left + right,
+            }
+        }
+    }
+
     enum ExprNode {
         BinExpr(Box<ExprNode>, Operator, Box<ExprNode>),
         Value(usize),
+    }
+
+    impl ExprNode {
+        pub fn compute(self) -> usize {
+            match self {
+                ExprNode::BinExpr(left, op, right) => op.compute_binary(left, right),
+                ExprNode::Value(v) => v,
+            }
+        }
     }
 
     #[non_terminal]
