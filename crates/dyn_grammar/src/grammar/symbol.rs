@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use crate::Grammar;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Symbol {
@@ -7,12 +7,12 @@ pub enum Symbol {
     EOF,
 }
 
-impl Display for Symbol {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Symbol {
+    pub fn index(&self, grammar: &Grammar) -> usize {
         match self {
-            Symbol::Token(token) => write!(f, "`{}`", token),
-            Symbol::NonTerminal(non_terminal) => write!(f, "{}", non_terminal),
-            Symbol::EOF => write!(f, "$"),
+            Symbol::Token(i) => *i,
+            Symbol::NonTerminal(i) => i + grammar.tokens.len(),
+            Symbol::EOF => grammar.tokens.len() + grammar.non_terminals.len(),
         }
     }
 }

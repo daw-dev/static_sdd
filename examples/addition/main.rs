@@ -8,7 +8,7 @@ mod addition_grammar {
     #[non_terminal]
     #[start_symbol]
     pub type E = f32;
-    
+
     #[non_terminal]
     // #[start_symbol]
     pub type T = f32;

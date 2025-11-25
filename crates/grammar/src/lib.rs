@@ -1,5 +1,6 @@
 use dyn_grammar::{
-    grammar::Grammar, non_terminal::NonTerminal, production::Production, token::Token,
+    grammar::Grammar, non_terminal::NonTerminal, production::Production,
+    slr::automaton::SlrAutomaton, token::Token,
 };
 use itertools::Itertools;
 use proc_macro::TokenStream;
@@ -64,6 +65,8 @@ pub fn grammar(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let grammar = Grammar::new(non_terminals, tokens, productions, start_symbol);
     // eprintln!("{grammar:?}");
+    let automaton = SlrAutomaton::compute(&grammar);
+    automaton.display_table(&grammar);
 
     quote! {
         #module

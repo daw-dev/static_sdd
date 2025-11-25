@@ -18,3 +18,11 @@ path = "./examples/addition/main.rs"
 [[example]]
 name = "ast"
 path = "./examples/ast/main.rs"
+
+[[example]]
+name = "balanced"
+path = "./examples/balanced/main.rs"
+
+[[example]]
+name = "generic_addition"
+path = "./examples/generic_addition/main.rs"

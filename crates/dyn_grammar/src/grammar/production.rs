@@ -24,6 +24,14 @@ impl Production {
     pub fn arity(&self) -> usize {
         self.body.len()
     }
+
+    pub fn head(&self) -> &String {
+        &self.head
+    }
+
+    pub fn body(&self) -> &Vec<String> {
+        &self.body
+    }
 }
 
 impl Display for Production {
