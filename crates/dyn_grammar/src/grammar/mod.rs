@@ -109,7 +109,7 @@ impl Grammar {
         self.non_terminals.get(index)
     }
 
-    pub fn get_production_with_head(&self, head: &String) -> Vec<usize> {
+    pub fn get_productions_with_head(&self, head: &String) -> Vec<usize> {
         self.productions
             .iter()
             .enumerate()

@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::{Grammar, slr::item::SlrItem, symbol::Symbol};
 use std::{collections::HashSet, usize};
 
@@ -22,23 +24,25 @@ impl SlrState {
     }
 
     fn closure(&self, grammar: &Grammar) -> HashSet<SlrItem> {
-        // TODO: multiple "recursion" is not covered
+        let mut stack = self.kernel.iter().cloned().collect_vec();
         let mut res = self.kernel.clone();
-        res.extend(
-            res.iter()
-                .filter_map(|item| {
-                    if let Symbol::NonTerminal(non_terminal) = item.pointed_symbol(grammar) {
-                        Some(grammar.get_production_with_head(
-                            grammar.get_non_terminal(non_terminal).unwrap().name(),
-                        ))
-                    } else {
-                        None
-                    }
-                })
-                .flatten()
+        while let Some(item) = stack.pop() {
+            let Symbol::NonTerminal(non_terminal) = item.pointed_symbol(grammar) else {
+                continue;
+            };
+
+            for new_item in grammar
+                .get_productions_with_head(grammar.get_non_terminal(non_terminal).unwrap().name())
+                .into_iter()
                 .map(SlrItem::new)
-                .collect::<Vec<_>>(),
-        );
+            {
+                if res.contains(&new_item) {
+                    continue;
+                }
+                stack.push(new_item.clone());
+                res.insert(new_item);
+            }
+        }
         res
     }
 
@@ -78,6 +82,7 @@ impl SlrAutomaton {
             state.display(grammar);
             state.marked = true;
             let closure = state.closure(grammar);
+            eprintln!("with closure:");
             for item in closure.iter() {
                 item.display(grammar);
             }
@@ -107,6 +112,7 @@ impl SlrAutomaton {
                     })
                 })
                 .collect::<Vec<_>>();
+            eprintln!("\ntransitions:");
             for (label, target_state) in transitions.iter().enumerate().filter_map(|(i, target)| {
                 target.map(|target| (grammar.get_symbol_name_from_id(i), &self.states[target]))
             }) {
