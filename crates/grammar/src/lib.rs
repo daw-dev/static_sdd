@@ -210,3 +210,19 @@ fn extract_production(item: &mut Item) -> Option<Production> {
         _ => None,
     }
 }
+
+macro_rules! dummy_attribute {
+    ($attr:ident) => {
+        #[proc_macro_attribute]
+        pub fn $attr(_attr: TokenStream, item: TokenStream) -> TokenStream {
+            item
+        }
+    };
+}
+
+dummy_attribute!(token);
+dummy_attribute!(start_symbol);
+dummy_attribute!(non_terminal);
+dummy_attribute!(left_associative);
+dummy_attribute!(right_associative);
+dummy_attribute!(precedence);

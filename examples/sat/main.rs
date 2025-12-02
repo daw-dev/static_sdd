@@ -68,7 +68,7 @@ mod sat {
     production!(P6, D -> C);
     production!(P7, C -> (C, And, N), |(c, _, n)| Formula::Conjunction(Box::new(c), Box::new(n)));
     production!(P8, C -> N);
-    production!(P9, N -> (Not, I));
+    production!(P9, N -> (Not, I)); // the into implementation is used
     production!(P10, N -> Atom, |a| Formula::Atom(a));
     production!(P11, N -> (OpenPar, I, ClosePar), |(_, i, _)| i);
 }
