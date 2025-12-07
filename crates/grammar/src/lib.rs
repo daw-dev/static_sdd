@@ -212,17 +212,18 @@ fn extract_production(item: &mut Item) -> Option<Production> {
 }
 
 macro_rules! dummy_attribute {
-    ($attr:ident) => {
+    ($attr:ident, $pos:expr) => {
         #[proc_macro_attribute]
-        pub fn $attr(_attr: TokenStream, item: TokenStream) -> TokenStream {
-            item
+        #[proc_macro_error]
+        pub fn $attr(_attr: TokenStream, _item: TokenStream) -> TokenStream {
+            panic!("this attribute has to be put on top of {}", $pos)
         }
     };
 }
 
-dummy_attribute!(token);
-dummy_attribute!(start_symbol);
-dummy_attribute!(non_terminal);
-dummy_attribute!(left_associative);
-dummy_attribute!(right_associative);
-dummy_attribute!(precedence);
+dummy_attribute!(token, "type aliases, structs or enums");
+dummy_attribute!(start_symbol, "type aliases, structs or enums");
+dummy_attribute!(non_terminal, "type aliases, structs or enums");
+dummy_attribute!(left_associative, "production macros");
+dummy_attribute!(right_associative, "production macros");
+dummy_attribute!(precedence, "production marcos");

@@ -26,6 +26,12 @@ mod ambiguous {
     #[token = "^"]
     pub struct Power;
 
+    #[token = "("]
+    pub struct OpenPar;
+
+    #[token = ")"]
+    pub struct ClosePar;
+
     #[precedence = 0]
     #[left_associative]
     production!(P1, E -> (E, Plus, E), |(e1, _, e2)| e1 + e2);
@@ -47,7 +53,10 @@ mod ambiguous {
     production!(P5, E -> (E, Power, E), |(e1, _, e2)| e1.pow(e2 as u32));
 
     #[precedence = 3]
-    production!(P6, E -> Id);
+    production!(P6, E -> (OpenPar, E, ClosePar), |(_, e, _)| e);
+
+    #[precedence = 3]
+    production!(P7, E -> Id);
 }
 
 fn main() {
