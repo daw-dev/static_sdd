@@ -4,6 +4,7 @@ use static_sdd::*;
 mod arrays {
     use super::*;
 
+    #[derive(Debug)]
     pub enum ComputedType {
         BaseType(String),
         Array(usize, Box<ComputedType>),
@@ -16,7 +17,7 @@ mod arrays {
     #[non_terminal]
     pub struct C {
         base_type: Inherited<String>,
-        computed_type: Inherited<ComputedType>,
+        computed_type: Deferred<ComputedType>,
     }
 
     #[token = "int|float"]
@@ -31,9 +32,9 @@ mod arrays {
     #[token = r"\d+"]
     pub type Size = usize;
 
-    production!(P1, T -> (B, C), |(b, c)| {
+    production!(P1, T -> (B, C), |(b, mut c)| {
         c.base_type.set(b);
-        c.computed_type.unwrap_consume()
+        c.computed_type.unwrap()
     });
 
     production!(P2, C -> (LeftSquarePar, Size, RightSquarePar, C), |(_, size, _, c)| {
@@ -44,13 +45,26 @@ mod arrays {
     });
 
     production!(P3, C -> (), |_| {
-        let computed_out = Inherited::new();
+        let (from, into) = Inherited::channel_map(ComputedType::BaseType);
 
         C {
-            base_type: Inherited::inherit_map(computed_out.clone(), ComputedType::BaseType),
-            computed_type: computed_out,
+            base_type: from,
+            computed_type: into,
         }
     });
+}
+
+#[test]
+fn array_test() {
+    use arrays::*;
+
+    let base_type = B::from("int");
+    let c3 = P3::synthesize(());
+    let c2 = P2::synthesize((LeftSquarePar, 3, RightSquarePar, c3));
+    let c1 = P2::synthesize((LeftSquarePar, 2, RightSquarePar, c2));
+    let t = P1::synthesize((base_type, c1));
+
+    println!("{t:?}");
 }
 
 fn main() {

@@ -9,7 +9,7 @@ pub trait Production {
 macro_rules! production {
     ($name:ident, $driver:ident -> $body:ty, |$param:pat_param| $clos:expr) => {
         #[doc = concat!("Production: `", stringify!($driver), " -> ", stringify!($body), "`")]
-        struct $name;
+        pub struct $name;
 
         impl static_sdd::Production for $name {
             type Driver = $driver;
