@@ -273,3 +273,187 @@ impl<T: 'static> Deferred<T> {
         }
     }
 }
+
+// enum Pass<T> {
+//     Ready {
+//         ref_callbacks: Vec<Box<dyn FnOnce(&T)>>,
+//         move_callback: Option<Box<dyn FnOnce(T)>>,
+//     },
+//     Passed,
+// }
+//
+// impl<T: 'static> Pass<T> {
+//     fn pass(&mut self, value: T) {
+//         match self {
+//             Self::Ready {
+//                 ref_callbacks,
+//                 move_callback,
+//             } => {
+//                 for callback in std::mem::take(ref_callbacks).into_iter() {
+//                     callback(&value);
+//                 }
+//                 if let Some(callback) = move_callback.take() {
+//                     callback(value);
+//                 }
+//                 *self = Self::Passed;
+//             }
+//             Self::Passed => panic!("Value already passed!"),
+//         }
+//     }
+// }
+//
+// enum Waiting<T> {
+//     Empty,
+//     Computed(T),
+// }
+//
+// impl<T> Waiting<T> {
+//     fn set(&mut self, value: T) {
+//         *self = Self::Computed(value);
+//     }
+// }
+//
+// enum Internal<T> {
+//     Pass(Pass<T>),
+//     Waiting(Waiting<T>),
+// }
+//
+// impl<T: 'static> Internal<T> {
+//     fn new() -> Self {
+//         Self::Waiting(Waiting::Empty)
+//     }
+//
+//     // fn one_hop() -> (Self, Self) {
+//     //     let read = Self::new();
+//     //     let write = Self::pass(read);
+//     //     (write, read)
+//     // }
+//
+//     fn set(&mut self, value: T) {
+//         match self {
+//             Self::Pass(pass) => pass.pass(value),
+//             Self::Waiting(waiting) => waiting.set(value),
+//         }
+//     }
+//
+//     fn pass(mut other: Internal<T>) -> Self {
+//         Self::Pass(Pass::Ready {
+//             ref_callbacks: Vec::new(),
+//             move_callback: Some(Box::new(move |val| other.set(val))),
+//         })
+//     }
+//
+//     fn pass_multiple(others: impl IntoIterator<Item = Internal<T>>) -> Self
+//     where
+//         T: Clone,
+//     {
+//         Self::Pass(Pass::Ready {
+//             ref_callbacks: others
+//                 .into_iter()
+//                 .map(|mut internal| {
+//                     Box::new(move |val: &T| internal.set(val.clone())) as Box<dyn FnOnce(&T)>
+//                 })
+//                 .collect(),
+//             move_callback: None,
+//         })
+//     }
+//
+//     fn pass_map<U, F>(mut other: Internal<U>, mapper: F) -> Internal<T>
+//     where
+//         U: 'static,
+//         F: FnOnce(T) -> U + 'static,
+//     {
+//         Internal::Pass(Pass::Ready {
+//             ref_callbacks: Vec::new(),
+//             move_callback: Some(Box::new(move |val| other.set(mapper(val)))),
+//         })
+//     }
+//
+//     fn pass_multiple_ref<U, F>(
+//         others: impl IntoIterator<Item = Internal<U>>,
+//         mapper: F,
+//     ) -> Internal<T>
+//     where
+//         U: 'static,
+//         F: FnOnce(&T) -> U + 'static,
+//     {
+//         Self::Pass(Pass::Ready {
+//             ref_callbacks: others
+//                 .into_iter()
+//                 .map(|mut internal| {
+//                     Box::new(move |val: &T| internal.set(mapper(val))) as Box<dyn FnOnce(&T)>
+//                 })
+//                 .collect(),
+//             move_callback: None,
+//         })
+//     }
+// }
+//
+// pub struct Inherited2<T> {
+//     internal: Internal<T>,
+// }
+//
+// pub struct Deferred2<T> {
+//     internal: Internal<T>,
+// }
+
+struct PassDown<T, U> {
+    next_step: Box<State<T, U>>,
+    mapper: Box<dyn FnOnce(T) -> T>,
+}
+
+struct PassUp<T> {
+    mapper: Box<dyn FnOnce(T) -> T>,
+}
+
+struct Internal<T, U> {
+    pass_down: PassDown<T, U>,
+    pass_up: PassUp<U>,
+}
+
+struct Leaf<T, U> {
+    mapper: Box<dyn FnOnce(T) -> U>,
+}
+
+enum State<T, U = T> {
+    Leaf(Leaf<T, U>),
+    Internal(Internal<T, U>),
+}
+
+impl<T: 'static, U: 'static> State<T, U> {
+    fn new() -> Self {
+        todo!()
+    }
+
+    fn hop_map<F>(mapper: F) -> Self
+    where
+        F: FnOnce(T) -> U + 'static,
+    {
+        Self::Leaf(Leaf {
+            mapper: Box::new(mapper),
+        })
+    }
+
+    fn into_set(self, value: T) -> U {
+        match self {
+            State::Internal(Internal { pass_down, pass_up }) => {
+                (pass_up.mapper)(pass_down.next_step.into_set((pass_down.mapper)(value)))
+            }
+            State::Leaf(hop) => (hop.mapper)(value),
+        }
+    }
+}
+
+impl<T: 'static> State<T, T> {
+    fn hop() -> Self {
+        Self::hop_map(|t| t)
+    }
+}
+
+pub struct Inherited2<T> {
+    internal: State<T>,
+}
+
+pub struct Deferred2<T> {
+    internal: State<T>,
+}
