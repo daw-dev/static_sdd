@@ -13,28 +13,28 @@ production = { path = "crates/production" }
 inherited = { path = "crates/inherited" }
 
 [[example]]
-name = "addition"
-path = "./examples/addition/main.rs"
+name = "basic-addition"
+path = "./examples/basic/addition/main.rs"
 
 [[example]]
-name = "ast"
-path = "./examples/ast/main.rs"
+name = "addition-ast"
+path = "./examples/basic/addition-ast/main.rs"
 
 [[example]]
 name = "balanced"
-path = "./examples/balanced/main.rs"
+path = "./examples/basic/balanced/main.rs"
 
 [[example]]
-name = "generic_addition"
-path = "./examples/generic_addition/main.rs"
+name = "boolean"
+path = "./examples/basic/boolean/main.rs"
 
 [[example]]
-name = "sat"
-path = "./examples/sat/main.rs"
+name = "generic-addition"
+path = "./examples/generics/addition/main.rs"
 
 [[example]]
-name = "ambiguous"
-path = "./examples/ambiguous/main.rs"
+name = "ambiguous-expressions"
+path = "./examples/ambiguous/expressions/main.rs"
 
 [[example]]
 name = "array_type"
