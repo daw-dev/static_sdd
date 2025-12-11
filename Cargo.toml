@@ -43,3 +43,7 @@ path = "./examples/inheritance/array-typing/main.rs"
 [[example]]
 name = "correct-operator"
 path = "./examples/inheritance/correct-operator/main.rs"
+
+[[example]]
+name = "three-address-code"
+path = "./examples/inheritance/three-address-code/main.rs"
