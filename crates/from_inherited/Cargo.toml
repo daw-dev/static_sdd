@@ -1,5 +1,5 @@
 [package]
-name = "pipe"
+name = "from_inherited"
 version = "0.1.0"
 edition = "2024"
 

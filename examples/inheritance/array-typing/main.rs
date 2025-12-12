@@ -15,7 +15,7 @@ mod arrays {
     pub type T = ComputedType;
 
     #[non_terminal]
-    pub type Computed = Pipe<String, ComputedType>;
+    pub type Computed = FromInherited<String, ComputedType>;
 
     #[token = "int|float"]
     pub type Base = String;
@@ -29,13 +29,13 @@ mod arrays {
     #[token = r"\d+"]
     pub type Size = usize;
 
-    production!(P1, T -> (Base, Computed), |(b, c)| c.supply(b));
+    production!(P1, T -> (Base, Computed), |(b, c)| c.resolve(b));
 
     production!(P2, Computed -> (LeftSquarePar, Size, RightSquarePar, Computed), |(_, size, _, c)|
-        c.map_out(move |val| ComputedType::Array(size, Box::new(val)))
+        c.map(move |val| ComputedType::Array(size, Box::new(val)))
     );
 
-    production!(P3, Computed -> (), |_| Pipe::new(ComputedType::BaseType));
+    production!(P3, Computed -> (), |_| FromInherited::new(ComputedType::BaseType));
 }
 
 #[test]

@@ -3,7 +3,6 @@ use static_sdd::*;
 #[grammar]
 mod compiler {
     use super::*;
-    use std::{cell::RefCell, rc::Rc};
 
     pub enum Statement {
         Label(String),
@@ -26,7 +25,7 @@ mod compiler {
     }
 
     #[non_terminal]
-    pub type S = Pipe<SNext, Code>;
+    pub type S = FromInherited<SNext, Code>;
 
     pub struct BLabels {
         t: String,
@@ -34,7 +33,7 @@ mod compiler {
     }
 
     #[non_terminal]
-    pub type B = Pipe<BLabels, Code>;
+    pub type B = FromInherited<BLabels, Code>;
 
     #[token = "skip"]
     pub struct Skip;
@@ -58,19 +57,19 @@ mod compiler {
         "L0".into()
     }
 
-    production!(P0, P -> S, |s| s.supply(SNext { label: new_label() }));
+    production!(P0, P -> S, |s| s.resolve(SNext { label: new_label() }));
 
     production!(P1, S -> (S, S), |(s1, s2)|
-        s2.map_out(|code| {
-            let mut res = s1.supply(SNext { label: new_label() });
+        s2.map(|code| {
+            let mut res = s1.resolve(SNext { label: new_label() });
             res.lines.extend(code.lines);
             res
         })
     );
 
     production!(P2, S -> (If, B, S), |(_, b, s)| {
-        s.passthrough().map_out(move |(s_next, s_code)| {
-            let mut res = b.supply(BLabels {
+        s.synthesize(|s_next, s_code| {
+            let mut res = b.resolve(BLabels {
                     t: new_label(), f: s_next.label
                 });
             res.lines.extend(s_code.lines);

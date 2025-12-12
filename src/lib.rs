@@ -1,3 +1,3 @@
 pub use grammar::*;
-pub use pipe::*;
+pub use from_inherited::*;
 pub use production::*;
