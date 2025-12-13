@@ -60,6 +60,17 @@ impl<Inh: 'static, Syn: 'static> FromInherited<Inh, Syn> {
         })
     }
 
+    pub fn inherit_ref<ParentInh, F>(self, mapper: F) -> FromInherited<ParentInh, (ParentInh, Syn)>
+    where
+        ParentInh: 'static,
+        F: FnOnce(&ParentInh) -> Inh + 'static,
+    {
+        FromInherited::new(|inherited| {
+            let new_in = mapper(&inherited);
+            (inherited, self.resolve(new_in))
+        })
+    }
+
     pub fn chain<Final>(self, next: FromInherited<Syn, Final>) -> FromInherited<Inh, Final>
     where
         Final: 'static,
