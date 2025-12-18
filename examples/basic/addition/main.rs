@@ -21,9 +21,9 @@ mod addition_grammar {
 
     production!(P1, E -> (E, Plus, T), |(e, _, t)| e + t);
 
-    production!(P2, E -> T, |t| t);
+    production!(P2, E -> T);
 
-    production!(P3, T -> Id, |id| id);
+    production!(P3, T -> Id);
 }
 
 fn main() {

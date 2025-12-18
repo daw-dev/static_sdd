@@ -33,7 +33,7 @@ mod ast {
 
     production!(P1, E -> (E, Plus, T), |(e, _, t)| ExprNode::Plus(Box::new(e), Box::new(t)));
 
-    production!(P2, E -> T, |t| t);
+    production!(P2, E -> T);
 
     production!(P3, T -> Id, |id| ExprNode::Value(id));
 }
