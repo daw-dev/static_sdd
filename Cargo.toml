@@ -47,3 +47,7 @@ path = "./examples/inheritance/correct-operator/main.rs"
 [[example]]
 name = "three-address-code"
 path = "./examples/inheritance/three-address-code/main.rs"
+
+[[example]]
+name = "chess"
+path = "./examples/advanced/chess/main.rs"
