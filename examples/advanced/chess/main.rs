@@ -7,8 +7,10 @@ use static_sdd::*;
 
 #[grammar]
 mod chess {
-    use crate::board::Board;
     use super::*;
+
+    #[context]
+    use crate::board::Board;
 
     #[non_terminal]
     #[start_symbol]
@@ -19,7 +21,7 @@ mod chess {
     }
 
     #[non_terminal]
-    pub type SetupString = Board;
+    pub type SetupString = ();
 
     #[non_terminal]
     pub type Moves = Board;
@@ -33,15 +35,17 @@ mod chess {
     #[token = "0-0-0|O-O-O"]
     pub struct QueenSideCastling;
 
-    production!(P0, Game -> (SetupString, Moves), |_| todo!());
+    production!(G, Game -> (SetupString, Moves), |board, _| {
+        todo!()
+    });
 
-    production!(P1, Game -> Moves, |_| todo!());
+    production!(S0, SetupString -> (), |board, _| *board = Board::starting_board());
 
-    production!(P2, Moves -> (Moves, Move), |_| todo!());
+    production!(M0, Game -> Moves, |_| todo!());
 
-    production!(P3, Moves -> (), |_| todo!());
+    production!(M1, Moves -> (Moves, Move), |_| todo!());
+
+    production!(M2, Moves -> (), |_| todo!());
 }
 
-fn main() {
-
-}
+fn main() {}

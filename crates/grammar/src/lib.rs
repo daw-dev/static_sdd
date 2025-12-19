@@ -9,8 +9,7 @@ use proc_macro_error::{
 };
 use quote::quote;
 use syn::{
-    Ident, Item, ItemEnum, ItemMod, ItemStruct, ItemType, Meta, Type, parse::Parse,
-    parse_macro_input, parse_quote, spanned::Spanned,
+    parse::Parse, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, Attribute, Ident, Item, ItemEnum, ItemMod, ItemStruct, ItemType, ItemUse, Meta, Type, UseGroup, UseName, UsePath, UseRename, UseTree
 };
 
 #[proc_macro_attribute]
@@ -25,10 +24,20 @@ pub fn grammar(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut tokens = Vec::new();
     let mut non_terminals = Vec::new();
     let mut productions = Vec::new();
-    let mut start_symbol: Option<usize> = None;
+    let mut start_symbol = None;
+    let mut compiler_ctx = None;
 
     for item in items.iter_mut() {
-        if let Some(token) = extract_token(item) {
+        if let Some(ctx) = extract_context(item) {
+            if compiler_ctx.is_some() {
+                emit_error!(
+                    ctx.span(),
+                    "Compiler context defined for the second time here"
+                );
+                panic!();
+            }
+            compiler_ctx = Some(ctx);
+        } else if let Some(token) = extract_token(item) {
             tokens.push(token);
         } else if let Some((non_terminal, is_start)) = extract_non_terminal(item) {
             if is_start {
@@ -68,6 +77,18 @@ pub fn grammar(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let automaton = SlrAutomaton::compute(&grammar);
     automaton.display_table(&grammar);
 
+    let ctx_quote = compiler_ctx
+        .map(|ctx| {
+            parse_quote! {
+                pub type __CompilerContext = #ctx;
+            }
+        })
+        .unwrap_or(parse_quote! {
+            pub type __CompilerContext = ();
+        });
+
+    items.push(ctx_quote);
+
     let parse_fn = parse_quote! {
         pub fn parse(word: impl Into<String>) {
             println!("{}", word.into());
@@ -79,81 +100,101 @@ pub fn grammar(_attr: TokenStream, item: TokenStream) -> TokenStream {
     quote! { #module }.into()
 }
 
-fn extract_token(item: &mut Item) -> Option<Token> {
-    match item {
-        Item::Type(ItemType { attrs, ident, .. })
-        | Item::Struct(ItemStruct { attrs, ident, .. })
-        | Item::Enum(ItemEnum { attrs, ident, .. }) => {
-            if let Some(id) = attrs.iter().enumerate().find_map(|(i, attr)| {
-                if let Meta::NameValue(name_value) = &attr.meta
-                    && name_value.path.is_ident("token")
-                {
-                    return Some(i);
-                }
-                None
-            }) {
-                // TODO: maybe `token` should be an actual attribute that automatically creates the
-                // DFA?
-                let attr = attrs.remove(id);
-                let Meta::NameValue(name_value) = attr.meta else {
-                    unreachable!()
-                };
-                let syn::Expr::Lit(lit_value) = name_value.value else {
-                    emit_error!(
-                        ident.span(),
-                        "token attribute must define the corresponding regexpr, usage: #[token = \"\\d\"]"
-                    );
-                    panic!()
-                };
-                let syn::Lit::Str(lit_str_value) = lit_value.lit else {
-                    emit_error!(
-                        ident.span(),
-                        "token regexpr must be a string literal, usage: #[token = \"\\d\"]"
-                    );
-                    panic!()
-                };
-                Some(Token::new(ident.to_string(), lit_str_value.value()))
-            } else {
-                None
-            }
+fn extract_ident_from_use_tree(tree: &mut UseTree) -> Option<Ident> {
+    match tree {
+        UseTree::Path(use_path) => extract_ident_from_use_tree(&mut use_path.tree),
+        UseTree::Name(use_name) => Some(use_name.ident.clone()),
+        UseTree::Rename(use_rename) => Some(use_rename.rename.clone()),
+        UseTree::Group(UseGroup { items, .. }) if items.len() == 1 => {
+            extract_ident_from_use_tree(items.pop().unwrap().value_mut())
         }
         _ => None,
     }
 }
 
-fn extract_non_terminal(item: &mut Item) -> Option<(NonTerminal, bool)> {
+fn extract_info(item: &mut Item) -> Option<(&mut Vec<Attribute>, Ident)> {
     match item {
         Item::Type(ItemType { attrs, ident, .. })
         | Item::Struct(ItemStruct { attrs, ident, .. })
-        | Item::Enum(ItemEnum { attrs, ident, .. }) => {
-            if let Some(id) = attrs.iter().enumerate().find_map(|(i, attr)| {
-                if let Meta::Path(path) = &attr.meta
-                    && path.is_ident("non_terminal")
-                {
-                    return Some(i);
-                }
-                None
-            }) {
-                attrs.remove(id);
-                let mut is_start = false;
-                if let Some(id) = attrs.iter().enumerate().find_map(|(i, attr)| {
-                    if let Meta::Path(path) = &attr.meta
-                        && path.is_ident("start_symbol")
-                    {
-                        return Some(i);
-                    }
-                    None
-                }) {
-                    attrs.remove(id);
-                    is_start = true;
-                }
-                Some((NonTerminal::new(ident.to_string()), is_start))
-            } else {
-                None
-            }
+        | Item::Enum(ItemEnum { attrs, ident, .. }) => Some((attrs, ident.clone())),
+        Item::Use(ItemUse { attrs, tree, .. }) => {
+            extract_ident_from_use_tree(tree).map(|ident| (attrs, ident))
         }
         _ => None,
     }
+}
+
+fn extract_context(item: &mut Item) -> Option<Ident> {
+    let (attrs, ident) = extract_info(item)?;
+    let id = attrs.iter().enumerate().find_map(|(i, attr)| {
+        if let Meta::Path(path) = &attr.meta
+            && path.is_ident("context")
+        {
+            return Some(i);
+        }
+        None
+    })?;
+    attrs.remove(id);
+    Some(ident.clone())
+}
+
+fn extract_token(item: &mut Item) -> Option<Token> {
+    let (attrs, ident) = extract_info(item)?;
+    let id = attrs.iter().enumerate().find_map(|(i, attr)| {
+        if let Meta::NameValue(name_value) = &attr.meta
+            && name_value.path.is_ident("token")
+        {
+            return Some(i);
+        }
+        None
+    })?;
+    // TODO: maybe `token` should be an actual attribute that automatically creates the
+    // DFA?
+    let attr = attrs.remove(id);
+    let Meta::NameValue(name_value) = attr.meta else {
+        unreachable!()
+    };
+    let syn::Expr::Lit(lit_value) = name_value.value else {
+        emit_error!(
+            ident.span(),
+            "token attribute must define the corresponding regexpr, usage: #[token = r\"\\d\"]"
+        );
+        panic!()
+    };
+    let syn::Lit::Str(lit_str_value) = lit_value.lit else {
+        emit_error!(
+            ident.span(),
+            "token regexpr must be a string literal, usage: #[token = r\"\\d\"]"
+        );
+        panic!()
+    };
+    Some(Token::new(ident.to_string(), lit_str_value.value()))
+}
+
+fn extract_non_terminal(item: &mut Item) -> Option<(NonTerminal, bool)> {
+    let (attrs, ident) = extract_info(item)?;
+    let id = attrs.iter().enumerate().find_map(|(i, attr)| {
+        if let Meta::Path(path) = &attr.meta
+            && path.is_ident("non_terminal")
+        {
+            return Some(i);
+        }
+        None
+    })?;
+    attrs.remove(id);
+    let mut is_start = false;
+    if let Some(id) = attrs.iter().enumerate().find_map(|(i, attr)| {
+        if let Meta::Path(path) = &attr.meta
+            && path.is_ident("start_symbol")
+        {
+            return Some(i);
+        }
+        None
+    }) {
+        attrs.remove(id);
+        is_start = true;
+    }
+    Some((NonTerminal::new(ident.to_string()), is_start))
 }
 
 fn extract_production(item: &mut Item) -> Option<Production> {
@@ -228,3 +269,4 @@ dummy_attribute!(non_terminal, "type aliases, structs or enums");
 dummy_attribute!(left_associative, "production macros");
 dummy_attribute!(right_associative, "production macros");
 dummy_attribute!(precedence, "production marcos");
+dummy_attribute!(context, "ONLY ONE type alias, struct or enum");
