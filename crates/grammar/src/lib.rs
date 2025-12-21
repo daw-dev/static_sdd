@@ -81,11 +81,11 @@ pub fn grammar(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let ctx_quote = compiler_ctx
         .map(|ctx| {
             parse_quote! {
-                pub type __CompilerContext = #ctx;
+                type __CompilerContext = #ctx;
             }
         })
         .unwrap_or(parse_quote! {
-            pub type __CompilerContext = ();
+            type __CompilerContext = ();
         });
 
     items.push(ctx_quote);
