@@ -41,6 +41,176 @@ fn main() {
 }
 ```
 
+## Features
+
+### Basic features
+
+Like every other parser generators, this tool implements:
+
+- LALR(1) parsing table generation
+- Lexing for parsing of strings
+- Conflict warnings and resolution (precedence, associativity)
+- Synthesization of attributes bottom-up during parsing
+- Everything is done at compilation time
+
+### Code as grammar philosophy
+
+The main feature that separates this tool from other parser generators is how the grammar is defined: this tools
+defines a grammar through the rust programming language: a grammar is a module, symbols are types (structs, enums,
+type aliases or use directives) with either `#[non_terminal]` or `#[token = r"regex"]` and productions are created
+using the `production!(Ident, Head -> Body, <semantic action>)` macro, but in practice they're `impl`s of the `Production`
+for trait the newly created type at the first parameter of the production.
+
+The semantic action is meant to look like a closure and it can either have 1 parameter, in that case the parameter is
+the body of the production, or it can have 2 parameters, in that case the first is a mutable reference of the compiler context
+(see more later) and the second one is the body of the production. Note, since in most cases the body will be a touple,
+it can be useful to create a touple to capture the different values of the body:
+`production!(P0, A -> (B, C, D), |ctx, (b, c, d)| todo!("synthesize A"))`
+
+### Inherited attributes
+
+The tool provides two ways to represent inherited attributes and they should be enough to cover most cases where
+your parsing need inheritance.
+
+#### Compilation context
+
+Every grammar can have a compilation context, this is useful when dealing with information that is in different parts of
+the parse tree (like scoping). Each `production!` instance has a mutable reference to an instance of the compilation context.
+If no context is provided, `()` is used.
+
+```rust
+#[grammar]
+mod my_grammar {
+    #[context]
+    pub struct MyCompilationContext {
+        scope_id: usize,
+    }
+
+    #[non_terminal]
+    #[start_symbol]
+    pub struct StartSymbol;
+
+    production!(P0, StartSymbol -> (), |ctx, _| {
+        println!("scope is {}", ctx.scope_id);
+        ctx.scope_id += 1;
+    });
+}
+```
+
+#### `FromInherited` helper type
+
+Since inherited attributes are usually used to synthesize other attributes, another way to represent
+inherited attributes is through functions, to make such representation easier, this tool provides the
+`FromInherited<Inh, Syn>` helper type.
+
+```rust
+#[grammar]
+mod arrays {
+    pub enum ComputedType {
+        BaseType(String),
+        Array(usize, Box<ComputedType>),
+    }
+
+    #[non_terminal]
+    #[start_symbol]
+    pub type T = ComputedType;
+
+    #[non_terminal]
+    pub type Computed = FromInherited<String, ComputedType>;
+    // the base type inherited attribute is only used to synthesize the computed type attribute
+
+    #[token = "int|float"]
+    pub type Base = String;
+
+    #[token = "["]
+    pub struct LeftSquarePar;
+
+    #[token = "]"]
+    pub struct RightSquarePar;
+
+    #[token = r"\d+"]
+    pub type Size = usize;
+
+    production!(P1, T -> (Base, Computed), |(b, c)| c.resolve(b));
+    // at this point the FromInherited is resolved: the inherited attribute is sent down the tree
+    // and the synthesized one bounces up
+
+    production!(P2, Computed -> (LeftSquarePar, Size, RightSquarePar, Computed), |(_, size, _, c)|
+        c.map(move |val| ComputedType::Array(size, Box::new(val)))
+        // at each bottom-up step, the type is wrapped in an array
+    );
+
+    production!(P3, Computed -> (), |_| FromInherited::new(ComputedType::BaseType));
+    // at the leaf the computed type is just the base type
+}
+```
+
+### Zero-Copy
+
+This tool utilizes Rust's ownership model to achieve a zero-copy parsing, every symbol (token or internal non-terminal)
+will be passed as owned value at each reduction of the parsing so that nothing will ever be copied.
+
+### Future Features
+
+While all the features above are natively supported in the current version of the tool, the following are features that
+will be added in the future.
+
+#### Expressive Errors, Suggestions and Recovery
+
+Whenever parsing can't be done, the `parse` function (or any of its variants) should return an expressive error
+
+```rust
+// given the grammar for the arithmetic expression with addition, multiplication and parethesis
+let res = arithmetic::parse("1*5+*3");
+match res {
+    Ok(res) => println!("result is {res}"),
+    Err(err) => eprintln!("{err}"),
+    // `1*5+*3`         found unexpected token Times, expected tokens are Num or OpenPar
+    //      ^
+}
+```
+
+Furthermore, the error should contain the stack that is used for the parsing so that if errors are fixed the parsing
+can resume.
+
+#### Grammar Modularity
+
+Instead of using just one grammar module, a grammar can be split into multiple modules to better separate the different
+parts of complex languages: for example, when building simple programming language that contains arithmetic expressions
+and flow-control structures (such as if and while), one could create the arithmetic sub-grammar and the flow-control
+sub-grammar.
+
+```rust
+#[grammar]
+mod daw_lang {
+    #[grammar]
+    mod arithmetic {
+        #[start_symbol]
+        #[non_terminal]
+        pub struct ArithmeticStatement;
+    }
+
+    #[grammar]
+    mod flow_control {
+        #[context]
+        pub struct CurrentLabels {
+            // ...
+        }
+
+        #[start_symbol]
+        #[non_terminal]
+        pub struct FlowControlStatement;
+    }
+
+    #[start_symbol]
+    #[non_terminal]
+    pub struct Statement;
+
+    production!(P0, Statement -> ArithmeticStatement);
+    production!(P1, Statement -> FlowControlStatement);
+}
+```
+
 ## Tool Comparison
 
 What follows is a small comparison with tools that are in different ways similar this one:
