@@ -179,6 +179,11 @@ Found unexpected token Times, expected tokens are Num or OpenPar
 Furthermore, the error should contain the stack that is used for the parsing so that if errors are fixed the parsing
 can resume.
 
+#### Table generation caching
+
+The procedural macro is invoked at every compilation, even when the grammar itself wasn't changed, when that happens,
+the engine is able to notice it and in that case it doesn't have to re-compute the parsing table and just uses a chached one.
+
 #### Grammar Modularity
 
 Instead of using just one grammar module, a grammar can be split into multiple modules to better separate the different
@@ -218,11 +223,6 @@ mod daw_lang {
 ```
 
 Ideally, this would also speed-up parsing because each grammar uses different and smaller parsing tables.
-
-#### Table generation caching
-
-The procedural macro is invoked at every compilation, even when the grammar itself wasn't changed, when that happens,
-the engine is able to notice it and in that case it doesn't have to re-compute the parsing table and just uses a chached one.
 
 ## Tool Comparison
 
