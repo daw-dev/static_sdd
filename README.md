@@ -160,7 +160,7 @@ will be added in the future.
 Whenever parsing can't be done, the `parse` function (or any of its variants) should return an expressive error
 
 ```rust
-// given the grammar for the arithmetic expression with addition, multiplication and parethesis
+// given the grammar for the arithmetic expression with addition, multiplication and parenthesis
 let res = arithmetic::parse("1*5+*3");
 match res {
     Ok(res) => println!("result is {res}"),
