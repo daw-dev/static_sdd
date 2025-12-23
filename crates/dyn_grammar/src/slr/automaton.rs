@@ -1,6 +1,9 @@
 use itertools::Itertools;
 
-use crate::{Grammar, slr::item::SlrItem, symbol::Symbol};
+use crate::{
+    slr::item::SlrItem,
+    symbolic_grammar::{SymbolicGrammar, SymbolicNonTerminal, SymbolicSymbol, SymbolicToken},
+};
 use std::{collections::HashSet, usize};
 
 #[derive(Debug)]
@@ -23,18 +26,18 @@ impl SlrState {
         }
     }
 
-    fn closure(&self, grammar: &Grammar) -> HashSet<SlrItem> {
+    fn closure(&self, grammar: &SymbolicGrammar) -> HashSet<SlrItem> {
         let mut stack = self.kernel.iter().cloned().collect_vec();
         let mut res = self.kernel.clone();
         while let Some(item) = stack.pop() {
-            let Symbol::NonTerminal(non_terminal) = item.pointed_symbol(grammar) else {
+            let SymbolicSymbol::NonTerminal(non_terminal) = item.pointed_symbol(grammar) else {
                 continue;
             };
 
             for new_item in grammar
-                .get_productions_with_head(grammar.get_non_terminal(non_terminal).unwrap().name())
+                .get_productions_with_head(non_terminal)
                 .into_iter()
-                .map(SlrItem::new)
+                .map(|prod| SlrItem::new(prod.id()))
             {
                 if res.contains(&new_item) {
                     continue;
@@ -45,59 +48,56 @@ impl SlrState {
         }
         res
     }
-
-    fn display(&self, grammar: &Grammar) {
-        eprint!("{{");
-        for item in self.kernel.iter() {
-            item.display(grammar);
-        }
-        eprintln!("}}");
-    }
 }
 
 #[derive(Debug)]
 pub struct SlrAutomaton {
     states: Vec<SlrState>,
-    symbols_count: usize,
-    transitions: Vec<Vec<Option<usize>>>,
+    transitions: Vec<(Vec<Option<SymbolicToken>>, Vec<Option<SymbolicNonTerminal>>)>,
 }
 
 impl SlrAutomaton {
-    pub fn compute(grammar: &Grammar) -> Self {
+    pub fn compute(grammar: &SymbolicGrammar) -> Self {
         let mut automaton = SlrAutomaton {
             states: Vec::new(),
             transitions: Vec::new(),
-            symbols_count: grammar.symbols_count(),
         };
         automaton.populate(grammar);
         automaton
     }
 
-    fn populate(&mut self, grammar: &Grammar) {
+    fn populate(&mut self, grammar: &SymbolicGrammar) {
         let first_state = SlrState::new(HashSet::from_iter([SlrItem::new(usize::MAX)]));
         self.add_state(first_state);
 
         while let Some(state) = self.states.iter_mut().find(|state| !state.marked) {
-            eprintln!("current state:");
-            state.display(grammar);
             state.marked = true;
             let closure = state.closure(grammar);
-            eprintln!("with closure:");
-            for item in closure.iter() {
-                item.display(grammar);
-            }
-            let mut transitions = vec![HashSet::new(); self.symbols_count];
+            let mut token_transitions = vec![HashSet::new(); grammar.token_count()];
+            let mut non_terminal_transitions = vec![HashSet::new(); grammar.non_terminal_count()];
             for (symbol, mut item) in closure.into_iter().filter_map(|item| {
                 (!item.is_final_item(grammar)).then(|| (item.pointed_symbol(grammar), item))
             }) {
                 item.move_marker();
-                transitions[symbol.index(grammar)].insert(item);
+                match symbol {
+                    SymbolicSymbol::Token(tok) => {
+                        token_transitions[tok].insert(item);
+                    }
+                    SymbolicSymbol::NonTerminal(nt) => {
+                        non_terminal_transitions[nt].insert(item);
+                    }
+                    SymbolicSymbol::EOF => unreachable!(),
+                }
             }
-            let transitions = transitions
+            let token_transitions = token_transitions
                 .into_iter()
                 .map(|kernel| (!kernel.is_empty()).then(|| SlrState::new(kernel)))
                 .collect::<Vec<_>>();
-            let transitions = transitions
+            let non_terminal_transitions = non_terminal_transitions
+                .into_iter()
+                .map(|kernel| (!kernel.is_empty()).then(|| SlrState::new(kernel)))
+                .collect::<Vec<_>>();
+            let token_transitions = token_transitions
                 .into_iter()
                 .map(|target_state| {
                     target_state.map(|target_state| {
@@ -112,14 +112,22 @@ impl SlrAutomaton {
                     })
                 })
                 .collect::<Vec<_>>();
-            eprintln!("\ntransitions:");
-            for (label, target_state) in transitions.iter().enumerate().filter_map(|(i, target)| {
-                target.map(|target| (grammar.get_symbol_name_from_id(i), &self.states[target]))
-            }) {
-                eprint!("{label}: ");
-                target_state.display(grammar);
-            }
-            self.add_transitions(transitions);
+            let non_terminal_transitions = non_terminal_transitions
+                .into_iter()
+                .map(|target_state| {
+                    target_state.map(|target_state| {
+                        match self.states.iter().position(|state| state == &target_state) {
+                            Some(i) => i,
+                            None => {
+                                let state_id = self.states.len();
+                                self.add_state(target_state);
+                                state_id
+                            }
+                        }
+                    })
+                })
+                .collect::<Vec<_>>();
+            self.add_transitions(token_transitions, non_terminal_transitions);
         }
     }
 
@@ -127,26 +135,12 @@ impl SlrAutomaton {
         self.states.push(state);
     }
 
-    fn add_transitions(&mut self, transitions: Vec<Option<usize>>) {
-        self.transitions.push(transitions);
-    }
-
-    pub fn display_table(&self, grammar: &Grammar) {
-        const COL_WIDTH: usize = 10;
-        eprint!("{}", " ".repeat(COL_WIDTH));
-        for sym in (0..grammar.symbols_count()).map(|i| grammar.get_symbol_name_from_id(i)) {
-            eprint!("{sym:^width$}", width = COL_WIDTH);
-        }
-        eprintln!();
-        for (row_i, row) in self.transitions.iter().enumerate() {
-            eprint!("{row_i:^width$}", width = COL_WIDTH);
-            for target_state in row.iter() {
-                match target_state {
-                    Some(id) => eprint!("{id:^width$}", width = COL_WIDTH),
-                    None => eprint!("{}", " ".repeat(COL_WIDTH)),
-                }
-            }
-            eprintln!();
-        }
+    fn add_transitions(
+        &mut self,
+        token_transitions: Vec<Option<SymbolicToken>>,
+        non_terminal_transitions: Vec<Option<SymbolicNonTerminal>>,
+    ) {
+        self.transitions
+            .push((token_transitions, non_terminal_transitions));
     }
 }

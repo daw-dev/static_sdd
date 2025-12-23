@@ -1,10 +1,9 @@
-use dyn_grammar::{Grammar, non_terminal::NonTerminal, token::Token};
-use proc_macro2::Span;
+use dyn_grammar::{EnrichedGrammar, non_terminal::EnrichedNonTerminal, token::EnrichedToken};
 use syn::{Ident, Item, parse_quote};
 
-pub fn inject_items(items: &mut Vec<Item>, grammar: Grammar, compiler_ctx: Option<Ident>) {
-    items.push(compiler_context(compiler_ctx));
-    items.push(token_enum(grammar.tokens()));
+pub fn inject_items(items: &mut Vec<Item>, grammar: EnrichedGrammar) {
+    items.push(compiler_context(grammar.context()));
+    items.extend(token_enum(grammar.tokens()));
     items.push(non_terminal_enum(grammar.non_terminals()));
     items.push(symbol_enum());
     // items.push(parse_one_fn());
@@ -13,8 +12,9 @@ pub fn inject_items(items: &mut Vec<Item>, grammar: Grammar, compiler_ctx: Optio
     // items.push(parse_str_fn(todo!()));
 }
 
-fn compiler_context(compiler_ctx: Option<Ident>) -> Item {
+fn compiler_context(compiler_ctx: &Option<Ident>) -> Item {
     compiler_ctx
+        .as_ref()
         .map(|ctx| {
             parse_quote! {
                 type __CompilerContext = #ctx;
@@ -25,10 +25,10 @@ fn compiler_context(compiler_ctx: Option<Ident>) -> Item {
         })
 }
 
-fn token_enum(tokens: &Vec<Token>) -> Vec<Item> {
+fn token_enum(tokens: &Vec<EnrichedToken>) -> Vec<Item> {
     let tokens: Vec<_> = tokens
         .iter()
-        .map(|token| Ident::new(token.name(), Span::call_site()))
+        .map(|token| token.ident())
         .collect();
     let file: syn::File = parse_quote! {
         pub enum Token {
@@ -46,10 +46,10 @@ fn token_enum(tokens: &Vec<Token>) -> Vec<Item> {
     file.items
 }
 
-fn non_terminal_enum(non_terminals: &Vec<NonTerminal>) -> Item {
+fn non_terminal_enum(non_terminals: &Vec<EnrichedNonTerminal>) -> Item {
     let non_terminals = non_terminals
         .iter()
-        .map(|non_terminal| Ident::new(non_terminal.name(), Span::call_site()));
+        .map(|non_terminal| non_terminal.ident());
     parse_quote! {
         pub enum NonTerminal {
             #(#non_terminals (#non_terminals),)*

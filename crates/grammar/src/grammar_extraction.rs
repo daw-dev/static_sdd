@@ -1,7 +1,71 @@
-use dyn_grammar::{non_terminal::NonTerminal, production::Production, token::Token, Grammar};
+use dyn_grammar::{
+    EnrichedGrammar, non_terminal::EnrichedNonTerminal, production::EnrichedProduction,
+    token::EnrichedToken,
+};
 use itertools::Itertools;
 use proc_macro_error::{emit_call_site_error, emit_call_site_warning, emit_error};
-use syn::{parse::Parse, Attribute, Item, ItemEnum, ItemStruct, ItemType, ItemUse, Meta, Type, UseGroup, UseTree, Ident};
+use syn::{
+    Attribute, Ident, Item, ItemEnum, ItemStruct, ItemType, ItemUse, Meta, Type, UseGroup, UseTree,
+    parse::Parse,
+};
+
+pub fn extract_grammar(items: &mut Vec<Item>) -> EnrichedGrammar {
+    let mut tokens = Vec::new();
+    let mut non_terminals = Vec::new();
+    let mut productions = Vec::new();
+    let mut start_symbol = None;
+    let mut compiler_ctx = None;
+
+    for item in items.iter_mut() {
+        if let Some(ctx) = extract_context(item) {
+            if compiler_ctx.is_some() {
+                emit_error!(
+                    ctx.span(),
+                    "Compiler context defined for the second time here"
+                );
+                panic!();
+            }
+            compiler_ctx = Some(ctx);
+        } else if let Some(token) = extract_token(item) {
+            tokens.push(token);
+        } else if let Some((non_terminal, is_start)) = extract_non_terminal(item) {
+            if is_start {
+                if let Some(cur_start) = start_symbol {
+                    panic!(
+                        "you can only declare one start symbol, found both {} and {}",
+                        cur_start, non_terminal
+                    );
+                }
+                start_symbol = Some(non_terminal.clone());
+            }
+            non_terminals.push(non_terminal);
+        } else if let Some(production) = extract_production(item) {
+            productions.push(production);
+        }
+    }
+
+    if non_terminals.is_empty() || tokens.is_empty() || productions.is_empty() {
+        emit_call_site_error!(
+            "every grammar has to have some non-terminals, tokens and productions. Found non-terminals: [{}], tokens: [{}], productions: [{}]",
+            non_terminals.iter().format(","),
+            tokens.iter().format(","),
+            productions.iter().format(","),
+        );
+    }
+
+    let start_symbol = start_symbol.unwrap_or_else(|| {
+        emit_call_site_warning!("no start symbol was declared, using {}", non_terminals[0]);
+        non_terminals[0].clone()
+    });
+
+    EnrichedGrammar::new(
+        compiler_ctx,
+        non_terminals,
+        tokens,
+        productions,
+        start_symbol,
+    )
+}
 
 fn extract_ident_from_use_tree(tree: &mut UseTree) -> Option<Ident> {
     match tree {
@@ -41,7 +105,7 @@ fn extract_context(item: &mut Item) -> Option<Ident> {
     Some(ident.clone())
 }
 
-fn extract_token(item: &mut Item) -> Option<Token> {
+fn extract_token(item: &mut Item) -> Option<EnrichedToken> {
     let (attrs, ident) = extract_info(item)?;
     let id = attrs.iter().enumerate().find_map(|(i, attr)| {
         if let Meta::NameValue(name_value) = &attr.meta
@@ -71,10 +135,10 @@ fn extract_token(item: &mut Item) -> Option<Token> {
         );
         panic!()
     };
-    Some(Token::new(ident.to_string(), lit_str_value.value()))
+    Some(EnrichedToken::new(ident, lit_str_value.value()))
 }
 
-fn extract_non_terminal(item: &mut Item) -> Option<(NonTerminal, bool)> {
+fn extract_non_terminal(item: &mut Item) -> Option<(EnrichedNonTerminal, bool)> {
     let (attrs, ident) = extract_info(item)?;
     let id = attrs.iter().enumerate().find_map(|(i, attr)| {
         if let Meta::Path(path) = &attr.meta
@@ -97,10 +161,10 @@ fn extract_non_terminal(item: &mut Item) -> Option<(NonTerminal, bool)> {
         attrs.remove(id);
         is_start = true;
     }
-    Some((NonTerminal::new(ident.to_string()), is_start))
+    Some((EnrichedNonTerminal::new(ident), is_start))
 }
 
-fn extract_production(item: &mut Item) -> Option<Production> {
+fn extract_production(item: &mut Item) -> Option<EnrichedProduction> {
     struct ProductionInternal {
         name: Ident,
         head: Ident,
@@ -120,12 +184,12 @@ fn extract_production(item: &mut Item) -> Option<Production> {
         }
     }
 
-    impl From<ProductionInternal> for Production {
+    impl From<ProductionInternal> for EnrichedProduction {
         fn from(value: ProductionInternal) -> Self {
-            let name = value.name.to_string();
-            let head = value.head.to_string();
+            let name = value.name;
+            let head = value.head;
             let body = match value.body {
-                Type::Path(type_path) => vec![type_path.path.get_ident().unwrap().to_string()],
+                Type::Path(type_path) => vec![type_path.path.get_ident().unwrap().clone()],
                 Type::Tuple(type_tuple) => type_tuple
                     .elems
                     .iter()
@@ -133,13 +197,13 @@ fn extract_production(item: &mut Item) -> Option<Production> {
                         let Type::Path(type_path) = t else {
                             panic!("body of production has to be a tuple of named types")
                         };
-                        type_path.path.get_ident().unwrap().to_string()
+                        type_path.path.get_ident().unwrap().clone()
                     })
                     .collect(),
-                _ => panic!("type must be either a single type or a tuple"),
+                _ => panic!("type must be a unit, a single type or a tuple"),
             };
 
-            Production::new(name, head, body)
+            EnrichedProduction::new(name, head, body)
         }
     }
 
@@ -154,59 +218,4 @@ fn extract_production(item: &mut Item) -> Option<Production> {
         }
         _ => None,
     }
-}
-
-pub fn extract_grammar(items: &mut Vec<Item>) -> (Grammar, Option<Ident>) {
-    let mut tokens = Vec::new();
-    let mut non_terminals = Vec::new();
-    let mut productions = Vec::new();
-    let mut start_symbol = None;
-    let mut compiler_ctx = None;
-
-    for item in items.iter_mut() {
-        if let Some(ctx) = extract_context(item) {
-            if compiler_ctx.is_some() {
-                emit_error!(
-                    ctx.span(),
-                    "Compiler context defined for the second time here"
-                );
-                panic!();
-            }
-            compiler_ctx = Some(ctx);
-        } else if let Some(token) = extract_token(item) {
-            tokens.push(token);
-        } else if let Some((non_terminal, is_start)) = extract_non_terminal(item) {
-            if is_start {
-                if let Some(cur_start) = start_symbol {
-                    panic!(
-                        "you can only declare one start symbol, found both {} and {}",
-                        non_terminals[cur_start], non_terminal
-                    );
-                }
-                start_symbol = Some(non_terminals.len());
-            }
-            non_terminals.push(non_terminal);
-        } else if let Some(production) = extract_production(item) {
-            productions.push(production);
-        }
-    }
-
-    if non_terminals.is_empty() || tokens.is_empty() || productions.is_empty() {
-        emit_call_site_error!(
-            "every grammar has to have some non-terminals, tokens and productions. Found non-terminals: [{}], tokens: [{}], productions: [{}]",
-            non_terminals.iter().format(","),
-            tokens.iter().format(","),
-            productions.iter().format(","),
-        );
-    }
-
-    let start_symbol = match start_symbol {
-        Some(start_symbol) => non_terminals[start_symbol].name().clone(),
-        None => {
-            emit_call_site_warning!("no start symbol was declared, using {}", non_terminals[0]);
-            non_terminals[0].name().clone()
-        }
-    };
-
-    (Grammar::new(non_terminals, tokens, productions, start_symbol), compiler_ctx)
 }

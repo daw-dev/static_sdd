@@ -1,5 +1,5 @@
 use crate::{grammar_extraction::extract_grammar, item_injections::inject_items};
-use dyn_grammar::slr::automaton::SlrAutomaton;
+use dyn_grammar::{slr::automaton::SlrAutomaton, symbolic_grammar::SymbolicGrammar};
 use proc_macro::TokenStream;
 use proc_macro_error::{emit_call_site_error, proc_macro_error};
 use quote::quote;
@@ -14,14 +14,13 @@ pub fn grammar(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(mut module) = syn::parse::<ItemMod>(item.clone()) {
         let (_, items) = module.content.as_mut().expect("grammar module must be inline (contain braces)");
 
-        let (grammar, compiler_ctx) = extract_grammar(items);
+        let enriched_grammar = extract_grammar(items);
+        let symbolic_grammar = SymbolicGrammar::from(&enriched_grammar);
 
-        let automaton = SlrAutomaton::compute(&grammar);
-        automaton.display_table(&grammar);
+        let automaton = SlrAutomaton::compute(&symbolic_grammar);
 
-        inject_items(items, grammar, compiler_ctx);
+        inject_items(items, enriched_grammar);
 
-        // eprintln!("whaat?!");
         let parse_fn = parse_quote! {
             pub fn parse(word: impl Into<String>) {
                 println!("{}", word.into());
@@ -29,26 +28,10 @@ pub fn grammar(_attr: TokenStream, item: TokenStream) -> TokenStream {
         };
 
         items.push(parse_fn);
-
 
         quote! { #module }.into()
     } else if let Ok(File { items, .. }) = &mut syn::parse(item) {
-        let (grammar, compiler_ctx) = extract_grammar(items);
-
-        let automaton = SlrAutomaton::compute(&grammar);
-        automaton.display_table(&grammar);
-
-        inject_items(items, grammar, compiler_ctx);
-
-        let parse_fn = parse_quote! {
-            pub fn parse(word: impl Into<String>) {
-                println!("{}", word.into());
-            }
-        };
-
-        items.push(parse_fn);
-
-        quote!{ #(#items),* }.into()
+        todo!()
     } else {
         emit_call_site_error!("a grammar is either an inline module or a file");
         panic!()

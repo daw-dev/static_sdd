@@ -1,8 +1,4 @@
-use std::hash::Hash;
-
-use itertools::Itertools;
-
-use crate::{Grammar, symbol::Symbol};
+use crate::symbolic_grammar::{SymbolicGrammar, SymbolicSymbol};
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct SlrItem {
@@ -18,35 +14,17 @@ impl SlrItem {
         }
     }
 
-    pub fn pointed_symbol(&self, grammar: &Grammar) -> Symbol {
-        let production = grammar.get_production_from_id(self.production_id).unwrap();
-        match production.body().get(self.marker_position) {
-            Some(symbol_name) => grammar.get_symbol(symbol_name).unwrap(),
-            None => Symbol::EOF,
-        }
+    pub fn pointed_symbol(&self, grammar: &SymbolicGrammar) -> SymbolicSymbol {
+        let production = grammar.get_production(self.production_id).unwrap();
+        production.body().get(self.marker_position).cloned().unwrap_or(SymbolicSymbol::EOF)
     }
 
-    pub fn is_final_item(&self, grammar: &Grammar) -> bool {
+    pub fn is_final_item(&self, grammar: &SymbolicGrammar) -> bool {
         self.marker_position
             == grammar
-                .get_production_from_id(self.production_id)
+                .get_production(self.production_id)
                 .unwrap()
                 .arity()
-    }
-
-    pub fn display(&self, grammar: &Grammar) {
-        let production = grammar.get_production_from_id(self.production_id).unwrap();
-        let (first, second) = production.body().split_at(self.marker_position);
-        eprint!(
-            "{}->({}) ",
-            production.head(),
-            first
-                .iter()
-                .map(String::as_str)
-                .chain(std::iter::once("·"))
-                .chain(second.iter().map(String::as_str))
-                .format(" "),
-        );
     }
 
     pub fn move_marker(&mut self) {
