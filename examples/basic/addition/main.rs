@@ -1,5 +1,4 @@
-use static_sdd::grammar;
-use static_sdd::production;
+use static_sdd::*;
 
 #[grammar]
 mod addition_grammar {
@@ -9,21 +8,15 @@ mod addition_grammar {
     #[start_symbol]
     pub type E = f32;
 
-    #[non_terminal]
-    // #[start_symbol]
-    pub type T = f32;
-
     #[token = r"\d+(\.\d+)?"]
     pub type Id = f32;
 
     #[token = "+"]
     pub struct Plus;
 
-    production!(P1, E -> (E, Plus, T), |(e, _, t)| e + t);
+    production!(P1, E -> (E, Plus, Id), |(e, _, id)| e + id);
 
-    production!(P2, E -> T);
-
-    production!(P3, T -> Id);
+    production!(P2, E -> Id);
 }
 
 fn main() {
