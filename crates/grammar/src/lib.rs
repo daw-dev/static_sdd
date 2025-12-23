@@ -3,14 +3,15 @@ use dyn_grammar::{slr::automaton::SlrAutomaton, symbolic_grammar::SymbolicGramma
 use proc_macro::TokenStream;
 use proc_macro_error::{emit_call_site_error, proc_macro_error};
 use quote::quote;
-use syn::{File, ItemMod, parse_quote};
+use syn::{parse_quote, File, Ident, ItemMod};
 
 mod grammar_extraction;
 mod item_injections;
 
 #[proc_macro_attribute]
 #[proc_macro_error]
-pub fn grammar(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn grammar(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let internal_mod_name = syn::parse::<Ident>(attr).ok();
     if let Ok(mut module) = syn::parse::<ItemMod>(item.clone()) {
         let (_, items) = module.content.as_mut().expect("grammar module must be inline (contain braces)");
 
@@ -21,7 +22,7 @@ pub fn grammar(_attr: TokenStream, item: TokenStream) -> TokenStream {
         eprintln!("{symbolic_grammar:?}");
         let automaton = SlrAutomaton::compute(&symbolic_grammar);
 
-        inject_items(items, enriched_grammar);
+        inject_items(internal_mod_name, items, enriched_grammar);
 
         let parse_fn = parse_quote! {
             pub fn parse(word: impl Into<String>) {
