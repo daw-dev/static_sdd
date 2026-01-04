@@ -38,5 +38,22 @@ mod expressions {
 }
 
 fn main() {
-    todo!();
+    use expressions::*;
+
+    let res = parse(
+        (),
+        [
+            Token::Number(5),
+            Token::Plus(Plus),
+            Token::Number(2),
+            Token::Times(Times),
+            Token::OpenPar(OpenPar),
+            Token::Number(3),
+            Token::Plus(Plus),
+            Token::Number(1),
+            Token::ClosedPar(ClosedPar),
+        ],
+    );
+
+    println!("result is {res}");
 }

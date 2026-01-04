@@ -1,3 +1,4 @@
+pub mod enriched_symbol;
 pub mod non_terminal;
 pub mod production;
 pub mod token;
@@ -8,7 +9,9 @@ use itertools::Itertools;
 use syn::Ident;
 
 use crate::{
-    non_terminal::EnrichedNonTerminal, production::EnrichedProduction, token::EnrichedToken,
+    non_terminal::EnrichedNonTerminal,
+    production::{EnrichedBaseProduction, EnrichedProduction},
+    token::EnrichedToken,
 };
 
 #[derive(Debug)]
@@ -26,8 +29,12 @@ impl EnrichedGrammar {
         non_terminals: Vec<EnrichedNonTerminal>,
         tokens: Vec<EnrichedToken>,
         start_symbol: EnrichedNonTerminal,
-        productions: Vec<EnrichedProduction>,
+        productions: Vec<EnrichedBaseProduction>,
     ) -> Self {
+        let productions = productions
+            .into_iter()
+            .map(|prod| prod.into_production(&tokens, &non_terminals))
+            .collect();
         Self {
             context,
             non_terminals,

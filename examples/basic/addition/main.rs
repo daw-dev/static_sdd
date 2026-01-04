@@ -56,6 +56,14 @@ fn showcase() {
     assert!(lex.next().is_none());
 }
 
+#[test]
+fn table_test() {
+    const A: addition_grammar::Action = addition_grammar::ACTION_TABLE[0][0];
+}
+
+use addition_grammar::*;
+
 fn main() {
-    addition_grammar::parse("1+2+3");
+    let res = parse((), [Token::Id(1f32), Token::Plus(Plus), Token::Id(6f32)]);
+    println!("result is {res}");
 }

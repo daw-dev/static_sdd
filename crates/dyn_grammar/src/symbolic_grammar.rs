@@ -158,7 +158,21 @@ impl SymbolicGrammar {
             body: enriched_production
                 .body()
                 .iter()
-                .map(|ident| SymbolicGrammar::find_symbol(enriched_grammar, ident))
+                .map(|sym| match sym {
+                    crate::enriched_symbol::EnrichedSymbol::Token(enriched_token) => {
+                        SymbolicSymbol::Token(
+                            enriched_grammar.token_id(enriched_token.ident()).unwrap(),
+                        )
+                    }
+                    crate::enriched_symbol::EnrichedSymbol::NonTerminal(enriched_non_terminal) => {
+                        SymbolicSymbol::NonTerminal(
+                            enriched_grammar
+                                .non_terminal_id(enriched_non_terminal.ident())
+                                .unwrap(),
+                        )
+                    }
+                    crate::enriched_symbol::EnrichedSymbol::EOF => SymbolicSymbol::EOF,
+                })
                 .collect(),
         }
     }

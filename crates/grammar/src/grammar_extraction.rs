@@ -1,5 +1,5 @@
 use dyn_grammar::{
-    EnrichedGrammar, non_terminal::EnrichedNonTerminal, production::EnrichedProduction,
+    EnrichedGrammar, non_terminal::EnrichedNonTerminal, production::EnrichedBaseProduction,
     token::EnrichedToken,
 };
 use itertools::Itertools;
@@ -164,7 +164,7 @@ fn extract_non_terminal(item: &mut Item) -> Option<(EnrichedNonTerminal, bool)> 
     Some((EnrichedNonTerminal::new(ident), is_start))
 }
 
-fn extract_production(item: &mut Item) -> Option<EnrichedProduction> {
+fn extract_production(item: &mut Item) -> Option<EnrichedBaseProduction> {
     struct ProductionInternal {
         name: Ident,
         head: Ident,
@@ -187,7 +187,7 @@ fn extract_production(item: &mut Item) -> Option<EnrichedProduction> {
         }
     }
 
-    impl From<ProductionInternal> for EnrichedProduction {
+    impl From<ProductionInternal> for EnrichedBaseProduction {
         fn from(value: ProductionInternal) -> Self {
             let name = value.name;
             let head = value.head;
@@ -216,7 +216,7 @@ fn extract_production(item: &mut Item) -> Option<EnrichedProduction> {
                 _ => panic!("type must be a unit, a single type or a tuple"),
             };
 
-            EnrichedProduction::new(name, head, body)
+            EnrichedBaseProduction::new(name, head, body)
         }
     }
 

@@ -1,9 +1,8 @@
 use crate::{grammar_extraction::extract_grammar, item_injections::inject_items};
-use dyn_grammar::{symbolic_grammar::SymbolicGrammar, lalr::LalrAutomaton};
 use proc_macro::TokenStream;
 use proc_macro_error::{emit_call_site_error, proc_macro_error};
 use quote::quote;
-use syn::{parse_quote, File, Ident, ItemMod};
+use syn::{File, Ident, ItemMod};
 
 mod grammar_extraction;
 mod item_injections;
@@ -16,22 +15,7 @@ pub fn grammar(attr: TokenStream, item: TokenStream) -> TokenStream {
         let (_, items) = module.content.as_mut().expect("grammar module must be inline (contain braces)");
 
         let enriched_grammar = extract_grammar(items);
-        let symbolic_grammar = SymbolicGrammar::from(&enriched_grammar);
-
-        let automaton = LalrAutomaton::compute(&symbolic_grammar);
-        let (action_table, goto_table) = automaton.generate_tables();
-        eprintln!("{action_table}");
-        eprintln!("{goto_table}");
-
         inject_items(internal_mod_name, items, enriched_grammar);
-
-        let parse_fn = parse_quote! {
-            pub fn parse(word: impl Into<String>) {
-                println!("{}", word.into());
-            }
-        };
-
-        items.push(parse_fn);
 
         quote! { #module }.into()
     } else if let Ok(File { items, .. }) = &mut syn::parse(item) {

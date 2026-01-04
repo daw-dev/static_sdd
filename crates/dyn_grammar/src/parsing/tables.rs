@@ -11,7 +11,7 @@ use crate::{
 #[derive(Debug)]
 pub struct ActionTable {
     tokens_count: usize,
-    table: Vec<Vec<Option<Action>>>,
+    pub table: Vec<Vec<Option<Action>>>,
 }
 
 impl ActionTable {
@@ -29,7 +29,7 @@ impl ActionTable {
     }
 
     pub fn dimensions(&self) -> (usize, usize) {
-        (self.table.len(), self.tokens_count + 1)
+        (self.tokens_count + 1, self.table.len())
     }
 }
 
@@ -77,7 +77,7 @@ impl Display for ActionTable {
                             "{:^5}",
                             match target {
                                 Action::Shift(state) => format!("S{state}"),
-                                Action::Reduce(_) => format!("R{state}"),
+                                Action::Reduce(id) => format!("R{id}"),
                                 Action::Accept => "Acc".to_string(),
                             }
                         )
@@ -94,7 +94,7 @@ impl Display for ActionTable {
 #[derive(Debug)]
 pub struct GoToTable {
     non_terminals_count: usize,
-    table: Vec<Vec<Option<usize>>>,
+    pub table: Vec<Vec<Option<usize>>>,
 }
 
 impl GoToTable {
@@ -112,7 +112,7 @@ impl GoToTable {
     }
 
     pub fn dimensions(&self) -> (usize, usize) {
-        (self.table.len(), self.non_terminals_count)
+        (self.non_terminals_count, self.table.len())
     }
 }
 
