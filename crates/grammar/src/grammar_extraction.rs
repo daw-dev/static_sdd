@@ -9,7 +9,7 @@ use syn::{
     parse::Parse,
 };
 
-pub fn extract_grammar(items: &mut Vec<Item>) -> EnrichedGrammar {
+pub fn extract_grammar(items: &mut[Item]) -> EnrichedGrammar {
     let mut tokens = Vec::new();
     let mut non_terminals = Vec::new();
     let mut productions = Vec::new();

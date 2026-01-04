@@ -20,6 +20,6 @@ impl EnrichedToken {
 
 impl Display for EnrichedToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "/{}/ => {}", self.regexpr, self.ident.to_string())
+        write!(f, "/{}/ => {}", self.regexpr, self.ident)
     }
 }

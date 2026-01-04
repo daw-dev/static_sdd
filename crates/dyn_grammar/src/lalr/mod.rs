@@ -1,3 +1,5 @@
+#![allow(clippy::mutable_key_type)]
+
 use crate::{
     parsing::{
         action::Action,
@@ -312,11 +314,11 @@ impl<'a> LalrAutomaton<'a> {
             action_table.add_state();
             for (token, target) in token_transitions.iter().enumerate() {
                 action_table[(state_id, SymbolicSymbol::Token(token))] =
-                    target.clone().map(Action::Shift)
+                    (*target).map(Action::Shift)
             }
             goto_table.add_state();
             for (non_terminal, target) in non_terminal_transitions.iter().enumerate() {
-                goto_table[(state_id, SymbolicSymbol::NonTerminal(non_terminal))] = target.clone();
+                goto_table[(state_id, SymbolicSymbol::NonTerminal(non_terminal))] = *target;
             }
 
             for reducing_item in state

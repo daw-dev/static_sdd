@@ -42,7 +42,7 @@ fn compiler_context(compiler_ctx: &Option<Ident>) -> Item {
         })
 }
 
-fn token_enum(tokens: &Vec<EnrichedToken>) -> Vec<Item> {
+fn token_enum(tokens: &[EnrichedToken]) -> Vec<Item> {
     let tokens: Vec<_> = tokens
         .iter()
         .map(|token| token.ident())
@@ -64,7 +64,7 @@ fn token_enum(tokens: &Vec<EnrichedToken>) -> Vec<Item> {
     file.items
 }
 
-fn non_terminal_enum(non_terminals: &Vec<EnrichedNonTerminal>) -> Item {
+fn non_terminal_enum(non_terminals: &[EnrichedNonTerminal]) -> Item {
     let non_terminals = non_terminals
         .iter()
         .map(|non_terminal| non_terminal.ident());

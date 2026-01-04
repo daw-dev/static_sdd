@@ -101,7 +101,7 @@ impl Display for SymbolicGrammar {
             "tokens: [{}], ",
             (0..self.token_count).map(|i| format!("`{i}`")).format(", ")
         )?;
-        write!(f, "start_symbol: {}, ", self.start_symbol.to_string())?;
+        write!(f, "start_symbol: {}, ", self.start_symbol)?;
         write!(
             f,
             "productions: [{}] }}",
@@ -164,7 +164,7 @@ impl SymbolicGrammar {
     }
 
     pub fn first_set(&self, beta: &[SymbolicSymbol]) -> SymbolicFirstSet {
-        if beta.len() == 0 {
+        if beta.is_empty() {
             return SymbolicFirstSet {
                 tokens: HashSet::new(),
                 nullable: true,
@@ -185,7 +185,7 @@ impl SymbolicGrammar {
                 SymbolicSymbol::NonTerminal(non_terminal) => {
                     let productions = self.get_productions_with_head(*non_terminal);
                     for body in productions.into_iter().map(SymbolicProduction::body) {
-                        let firsts = self.first_set(&body);
+                        let firsts = self.first_set(body);
                         res.tokens.extend(firsts.tokens);
                         if !firsts.nullable {
                             return res;
@@ -198,10 +198,6 @@ impl SymbolicGrammar {
 
         res.nullable = true;
         res
-    }
-
-    pub fn follow_set(&self, non_terminal: SymbolicNonTerminal) -> SymbolicFollowSet {
-        todo!()
     }
 }
 

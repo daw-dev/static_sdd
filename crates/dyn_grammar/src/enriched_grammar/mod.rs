@@ -73,7 +73,7 @@ impl Display for EnrichedGrammar {
         write!(f, "EnrichedGrammar {{ ")?;
         write!(f, "context: ")?;
         match self.context.as_ref() {
-            Some(ctx) => write!(f, "Some({}), ", ctx.to_string())?,
+            Some(ctx) => write!(f, "Some({}), ", ctx)?,
             None => write!(f, "None, ")?,
         }
         write!(
@@ -82,7 +82,7 @@ impl Display for EnrichedGrammar {
             self.non_terminals.iter().format(", "),
             self.tokens.iter().format(", ")
         )?;
-        write!(f, "start_symbol: {}, ", self.start_symbol.ident().to_string())?;
+        write!(f, "start_symbol: {}, ", self.start_symbol.ident())?;
         write!(
             f,
             "productions: [{}] }}",

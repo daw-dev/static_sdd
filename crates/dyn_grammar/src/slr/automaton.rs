@@ -1,8 +1,8 @@
 use crate::{
-    parsing::tables::TransitionTables, slr::item::SlrItem, symbolic_grammar::{SymbolicGrammar, SymbolicNonTerminal, SymbolicSymbol, SymbolicToken}
+    parsing::tables::TransitionTables, slr::item::SlrItem, symbolic_grammar::{SymbolicGrammar, SymbolicSymbol}
 };
 use itertools::Itertools;
-use std::{collections::HashSet, fmt::Display, usize};
+use std::{collections::HashSet, fmt::Display};
 
 #[derive(Debug)]
 pub struct SlrState {

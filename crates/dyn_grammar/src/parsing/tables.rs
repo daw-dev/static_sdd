@@ -66,7 +66,7 @@ impl Display for ActionTable {
             write!(f, "{:^5}", i)?;
         }
         write!(f, "{:^5}", "$")?;
-        writeln!(f, "")?;
+        writeln!(f)?;
         for (state, row) in self.table.iter().enumerate() {
             write!(f, "{:^5}", state)?;
             for elem in row.iter() {
@@ -85,7 +85,7 @@ impl Display for ActionTable {
                     None => write!(f, "{}", " ".repeat(5)),
                 }?
             }
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         Ok(())
     }
@@ -148,7 +148,7 @@ impl Display for GoToTable {
         for i in 0..self.non_terminals_count {
             write!(f, "{:^5}", i)?;
         }
-        writeln!(f, "")?;
+        writeln!(f)?;
         for (state, row) in self.table.iter().enumerate() {
             write!(f, "{:^5}", state)?;
             for elem in row.iter() {
@@ -157,13 +157,13 @@ impl Display for GoToTable {
                     None => write!(f, "{}", " ".repeat(5)),
                 }?
             }
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         Ok(())
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TransitionTables {
     token_table: Vec<Vec<Option<usize>>>,
     non_terminal_table: Vec<Vec<Option<usize>>>,
@@ -209,7 +209,7 @@ impl Display for TransitionTables {
         for i in 0..self.token_table[0].len() {
             write!(f, "{:^5}", format!("`{i}`"))?;
         }
-        writeln!(f, "")?;
+        writeln!(f)?;
         for (state, (nt_row, tok_row)) in self
             .non_terminal_table
             .iter()
@@ -229,7 +229,7 @@ impl Display for TransitionTables {
                     None => write!(f, "{}", " ".repeat(5)),
                 }?
             }
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         Ok(())
     }
