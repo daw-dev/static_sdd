@@ -1,6 +1,5 @@
 use crate::{
-    slr::item::SlrItem,
-    symbolic_grammar::{SymbolicGrammar, SymbolicNonTerminal, SymbolicSymbol, SymbolicToken},
+    parsing::tables::TransitionTables, slr::item::SlrItem, symbolic_grammar::{SymbolicGrammar, SymbolicNonTerminal, SymbolicSymbol, SymbolicToken}
 };
 use itertools::Itertools;
 use std::{collections::HashSet, fmt::Display, usize};
@@ -46,74 +45,6 @@ impl SlrState {
             }
         }
         res
-    }
-}
-
-#[derive(Debug)]
-pub struct TransitionTables {
-    token_table: Vec<Vec<Option<SymbolicToken>>>,
-    non_terminal_table: Vec<Vec<Option<SymbolicNonTerminal>>>,
-}
-
-impl TransitionTables {
-    pub fn new() -> Self {
-        Self {
-            token_table: Vec::new(),
-            non_terminal_table: Vec::new(),
-        }
-    }
-
-    fn add_transitions(
-        &mut self,
-        token_transitions: Vec<Option<SymbolicToken>>,
-        non_terminal_transitions: Vec<Option<SymbolicNonTerminal>>,
-    ) {
-        self.token_table.push(token_transitions);
-        self.non_terminal_table.push(non_terminal_transitions);
-    }
-
-    pub fn token_transition(&self, starting_state: usize, token: SymbolicToken) -> Option<usize> {
-        self.token_table
-            .get(starting_state)?
-            .get(token)
-            .cloned()
-            .flatten()
-    }
-}
-
-impl Display for TransitionTables {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "TransitionTables:")?;
-        write!(f, "{}", " ".repeat(5))?;
-        for i in 0..self.non_terminal_table[0].len() {
-            write!(f, "{:^5}", i)?;
-        }
-        for i in 0..self.token_table[0].len() {
-            write!(f, "{:^5}", format!("`{i}`"))?;
-        }
-        writeln!(f, "")?;
-        for (state, (nt_row, tok_row)) in self
-            .non_terminal_table
-            .iter()
-            .zip(self.token_table.iter())
-            .enumerate()
-        {
-            write!(f, "{:^5}", state)?;
-            for elem in nt_row.iter() {
-                match elem {
-                    Some(target) => write!(f, "{:^5}", target),
-                    None => write!(f, "{}", " ".repeat(5)),
-                }?
-            }
-            for elem in tok_row.iter() {
-                match elem {
-                    Some(target) => write!(f, "{:^5}", target),
-                    None => write!(f, "{}", " ".repeat(5)),
-                }?
-            }
-            writeln!(f, "")?;
-        }
-        Ok(())
     }
 }
 

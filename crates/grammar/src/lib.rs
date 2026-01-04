@@ -1,5 +1,5 @@
 use crate::{grammar_extraction::extract_grammar, item_injections::inject_items};
-use dyn_grammar::{slr::automaton::SlrAutomaton, symbolic_grammar::SymbolicGrammar};
+use dyn_grammar::{symbolic_grammar::SymbolicGrammar, lalr::LalrAutomaton};
 use proc_macro::TokenStream;
 use proc_macro_error::{emit_call_site_error, proc_macro_error};
 use quote::quote;
@@ -18,10 +18,10 @@ pub fn grammar(attr: TokenStream, item: TokenStream) -> TokenStream {
         let enriched_grammar = extract_grammar(items);
         let symbolic_grammar = SymbolicGrammar::from(&enriched_grammar);
 
-        eprintln!("{enriched_grammar}");
-        eprintln!("{symbolic_grammar}");
-        let automaton = SlrAutomaton::compute(&symbolic_grammar);
-        eprintln!("{automaton}");
+        let automaton = LalrAutomaton::compute(&symbolic_grammar);
+        let (action_table, goto_table) = automaton.generate_tables();
+        eprintln!("{action_table}");
+        eprintln!("{goto_table}");
 
         inject_items(internal_mod_name, items, enriched_grammar);
 

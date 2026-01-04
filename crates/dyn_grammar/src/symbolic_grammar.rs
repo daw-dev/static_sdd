@@ -1,6 +1,6 @@
 use crate::{EnrichedGrammar, production::EnrichedProduction};
 use itertools::Itertools;
-use std::fmt::Display;
+use std::{collections::HashSet, fmt::Display};
 use syn::Ident;
 
 pub type SymbolicToken = usize;
@@ -69,6 +69,16 @@ impl SymbolicProduction {
     }
 }
 
+pub struct SymbolicFirstSet {
+    pub tokens: HashSet<SymbolicToken>,
+    pub nullable: bool,
+}
+
+pub struct SymbolicFollowSet {
+    pub tokens: HashSet<SymbolicToken>,
+    pub eof_follows: bool,
+}
+
 #[derive(Debug)]
 pub struct SymbolicGrammar {
     token_count: usize,
@@ -86,9 +96,17 @@ impl Display for SymbolicGrammar {
             "non_terminals: [{}], ",
             (0..self.non_terminal_count).format(", ")
         )?;
-        write!(f, "tokens: [{}], ", (0..self.token_count).map(|i| format!("`{i}`")).format(", "))?;
+        write!(
+            f,
+            "tokens: [{}], ",
+            (0..self.token_count).map(|i| format!("`{i}`")).format(", ")
+        )?;
         write!(f, "start_symbol: {}, ", self.start_symbol.to_string())?;
-        write!(f, "productions: [{}] }}", self.productions.iter().format(", "))
+        write!(
+            f,
+            "productions: [{}] }}",
+            self.productions.iter().format(", ")
+        )
     }
 }
 
@@ -143,6 +161,47 @@ impl SymbolicGrammar {
                 .map(|ident| SymbolicGrammar::find_symbol(enriched_grammar, ident))
                 .collect(),
         }
+    }
+
+    pub fn first_set(&self, beta: &[SymbolicSymbol]) -> SymbolicFirstSet {
+        if beta.len() == 0 {
+            return SymbolicFirstSet {
+                tokens: HashSet::new(),
+                nullable: true,
+            };
+        }
+
+        let mut res = SymbolicFirstSet {
+            tokens: HashSet::new(),
+            nullable: false,
+        };
+
+        for symbol in beta.iter() {
+            match symbol {
+                SymbolicSymbol::Token(token) => {
+                    res.tokens.insert(*token);
+                    return res;
+                }
+                SymbolicSymbol::NonTerminal(non_terminal) => {
+                    let productions = self.get_productions_with_head(*non_terminal);
+                    for body in productions.into_iter().map(SymbolicProduction::body) {
+                        let firsts = self.first_set(&body);
+                        res.tokens.extend(firsts.tokens);
+                        if !firsts.nullable {
+                            return res;
+                        }
+                    }
+                }
+                SymbolicSymbol::EOF => unreachable!(),
+            }
+        }
+
+        res.nullable = true;
+        res
+    }
+
+    pub fn follow_set(&self, non_terminal: SymbolicNonTerminal) -> SymbolicFollowSet {
+        todo!()
     }
 }
 
