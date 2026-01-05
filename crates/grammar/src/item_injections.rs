@@ -163,7 +163,7 @@ fn production_enum(productions: &[EnrichedProduction]) -> Vec<Item> {
     let reductions = productions.iter().map(|prod| {
         let prod_name = prod.ident();
         let head_type = prod.head();
-        let exprs = prod.body().iter().enumerate().rev().map(|(i, sym)| {
+        let exprs = prod.body().iter().enumerate().map(|(i, sym)| {
             let var_name = Ident::new(&format!("t{i}"), Span::call_site().into());
             match sym {
                 dyn_grammar::enriched_symbol::EnrichedSymbol::Token(enriched_token) => {
@@ -182,7 +182,7 @@ fn production_enum(productions: &[EnrichedProduction]) -> Vec<Item> {
                 }
                 dyn_grammar::enriched_symbol::EnrichedSymbol::EOF => unreachable!(),
             }
-        });
+        }).rev();
         let vars = (0usize..prod.arity()).map(|i| Ident::new(&format!("t{i}"), Span::call_site().into()));
         quote! {
             {
