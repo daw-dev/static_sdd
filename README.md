@@ -224,6 +224,41 @@ mod daw_lang {
 
 Ideally, this would also speed-up parsing because each grammar uses different and smaller parsing tables.
 
+#### Generic Symbols
+
+I'm not sure it's possible, but it would be cool to allow something like the following:
+
+```rust
+use static_sdd::*;
+
+#[grammar]
+mod addition {
+    use super::*;
+
+    #[non_terminal]
+    #[start_symbol]
+    pub type E<T> = T;
+
+    #[token(usize => r"\d+", f32 => r"\d+(\.\d+)?")]
+    pub type Num<T> = T;
+
+    #[token = "+"]
+    pub struct Plus;
+
+    production!(P0<T>, E<T> -> (E<T>, Plus, Num<T>), |(e, _, num)| e + num);
+
+    production!(P1<T>, E<T> -> Num<T>);
+}
+
+fn main() {
+    let res = addition::parse::<usize>("10+3+9");
+    assert_eq!(res, Ok(22));
+    
+    let res = addition::parse::<f32>("1.3+5.2");
+    assert_eq!(res, Ok(6.5))
+}
+```
+
 ## Tool Comparison
 
 What follows is a small comparison with tools that are in different ways similar this one:
