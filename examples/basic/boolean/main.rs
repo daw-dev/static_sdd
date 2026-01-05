@@ -4,6 +4,7 @@ use static_sdd::*;
 mod sat {
     use super::*;
 
+    #[derive(Debug)]
     pub enum Formula {
         Atom(String),
         Negation(Box<Formula>),
@@ -68,11 +69,26 @@ mod sat {
     production!(P6, D -> C);
     production!(P7, C -> (C, And, N), |(c, _, n)| Formula::Conjunction(Box::new(c), Box::new(n)));
     production!(P8, C -> N);
-    production!(P9, N -> (Not, I)); // the into implementation is used
+    production!(P9, N -> (Not, N)); // the into implementation is used
     production!(P10, N -> Atom, |a| Formula::Atom(a));
     production!(P11, N -> (OpenPar, I, ClosePar), |(_, i, _)| i);
 }
 
+use sat::*;
+
 fn main() {
-    sat::parse("a|b&c->d->e&f");
+    let t = parse(
+        (),
+        [
+            Token::Atom("p".to_string()),
+            Token::RightArrow(RightArrow),
+            // Token::OpenPar(OpenPar),
+            Token::Not(Not),
+            Token::Atom("q".to_string()),
+            Token::Or(Or),
+            Token::Atom("r".to_string()),
+            // Token::ClosePar(ClosePar),
+        ],
+    );
+    println!("{t:?}")
 }

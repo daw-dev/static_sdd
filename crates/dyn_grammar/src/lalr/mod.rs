@@ -45,32 +45,49 @@ impl Display for LookAhead {
 struct LookAheadNodeRef(Rc<RefCell<LookAheadNode>>);
 
 impl LookAheadNodeRef {
-    pub fn initial_lookahead_node() -> LookAheadNodeRef {
-        Self(Rc::new(RefCell::new(LookAheadNode {
-            natural_lookahead: LookAhead {
+    pub fn initial_lookahead_node(counter: &mut usize) -> LookAheadNodeRef {
+        Self::new(
+            counter,
+            LookAhead {
                 tokens: HashSet::new(),
                 can_eof_follow: true,
             },
-            dependencies: Vec::new(),
-        })))
+            Vec::new(),
+        )
     }
 
-    pub fn new(natural_lookahead: LookAhead, dependencies: Vec<LookAheadNodeRef>) -> Self {
+    pub fn new(
+        counter: &mut usize,
+        natural_lookahead: LookAhead,
+        dependencies: Vec<LookAheadNodeRef>,
+    ) -> Self {
+        let node_id = *counter;
+        *counter += 1;
         Self(Rc::new(RefCell::new(LookAheadNode {
+            node_id,
             natural_lookahead,
             dependencies,
         })))
     }
 
-    pub fn compute_lookahead(&self) -> LookAhead {
+    fn compute_lookahead_helper(&self, visited: &mut HashSet<usize>) -> LookAhead {
         // TODO: not so simple, graph could have cycles
-        let mut res = self.0.borrow().natural_lookahead.clone();
-        for dep in self.0.borrow().dependencies.iter() {
-            let lh = dep.compute_lookahead();
+        let borrow = self.0.borrow();
+        let mut res = borrow.natural_lookahead.clone();
+        if visited.contains(&borrow.node_id) {
+            return res;
+        }
+        visited.insert(borrow.node_id);
+        for dep in borrow.dependencies.iter() {
+            let lh = dep.compute_lookahead_helper(visited);
             res.tokens.extend(lh.tokens);
             res.can_eof_follow |= lh.can_eof_follow;
         }
         res
+    }
+
+    pub fn compute_lookahead(&self) -> LookAhead {
+        self.compute_lookahead_helper(&mut HashSet::new())
     }
 
     pub fn add_dependency(&self, dependency: LookAheadNodeRef) {
@@ -79,6 +96,7 @@ impl LookAheadNodeRef {
 }
 
 struct LookAheadNode {
+    node_id: usize,
     natural_lookahead: LookAhead,
     dependencies: Vec<LookAheadNodeRef>,
 }
@@ -152,7 +170,7 @@ impl LalrState {
         }
     }
 
-    fn closure(&self, grammar: &SymbolicGrammar) -> HashSet<LalrItem> {
+    fn closure(&self, counter: &mut usize, grammar: &SymbolicGrammar) -> HashSet<LalrItem> {
         let mut stack = self.kernel.clone().into_iter().collect_vec();
         let mut res = self.kernel.clone();
 
@@ -181,7 +199,7 @@ impl LalrState {
             } else {
                 Vec::new()
             };
-            let lookahead_node = LookAheadNodeRef::new(natural_lookahead, dependencies);
+            let lookahead_node = LookAheadNodeRef::new(counter, natural_lookahead, dependencies);
 
             for new_item in grammar
                 .get_productions_with_head(non_terminal)
@@ -221,15 +239,16 @@ impl<'a> LalrAutomaton<'a> {
     }
 
     pub fn populate(&mut self) {
+        let mut counter = 0;
         let first_state = LalrState::new(HashSet::from_iter([LalrItem::new(
             usize::MAX,
-            LookAheadNodeRef::initial_lookahead_node(),
+            LookAheadNodeRef::initial_lookahead_node(&mut counter),
         )]));
         self.add_state(first_state);
 
         while let Some(state) = self.states.iter_mut().find(|state| !state.marked) {
             state.marked = true;
-            let closure = state.closure(self.grammar);
+            let closure = state.closure(&mut counter, self.grammar);
             let mut token_transitions = vec![HashSet::new(); self.grammar.token_count()];
             let mut non_terminal_transitions =
                 vec![HashSet::new(); self.grammar.non_terminal_count()];
