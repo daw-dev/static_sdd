@@ -20,7 +20,10 @@ pub fn inject_items(
     let symbolic_grammar = SymbolicGrammar::from(&enriched_grammar);
 
     let automaton = LalrAutomaton::compute(&symbolic_grammar);
+    eprintln!("{automaton}");
     let (action_table, goto_table) = automaton.generate_tables();
+    eprintln!("{action_table}");
+    eprintln!("{goto_table}");
 
     items.push(compiler_context(enriched_grammar.context()));
 
@@ -39,13 +42,13 @@ pub fn inject_items(
     items_to_add.push(parse_fn(enriched_grammar.start_symbol().ident()));
     match internal_mod_name {
         Some(name) => items.push(parse_quote! {
-            #[doc("generated using the static_sdd library")]
-            pub mod #name {
-                use super::*;
+                #[doc("generated using the static_sdd library")]
+                pub mod #name {
+                    use super::*;
 
-                #(#items_to_add)*
-            }
-}),
+                    #(#items_to_add)*
+                }
+            }),
         None => {
             items.extend(items_to_add);
         }
@@ -194,6 +197,7 @@ fn production_enum(productions: &[EnrichedProduction]) -> Vec<Item> {
         }
     });
     let file: syn::File = parse_quote! {
+        #[derive(Debug)]
         pub enum ProductionName {
             #(#idents,)*
         }
@@ -219,6 +223,7 @@ fn production_enum(productions: &[EnrichedProduction]) -> Vec<Item> {
 
 fn action_enum() -> Item {
     parse_quote! {
+        #[derive(Debug)]
         pub enum Action {
             Shift(usize),
             Reduce(ProductionName),
@@ -326,10 +331,10 @@ fn parse_one_fn() -> Item {
     parse_quote! {
         pub fn parse_one(ctx: &mut __CompilerContext, stacks: &mut Stacks, curr: Token) -> ParseOneResult {
             let current_state = stacks.state_stack.last();
-            let Some(&current_state) = current_state else { panic!() };
+            let Some(&current_state) = current_state else { return ParseOneResult::Error; };
             let token_id = curr.id();
             let action = &ACTION_TABLE[current_state][token_id];
-            let Some(action) = action else { panic!("couldn't parse!") };
+            let Some(action) = action else { return ParseOneResult::Error; };
             match action {
                 Action::Shift(state) => {
                     stacks.state_stack.push(*state);
@@ -368,13 +373,13 @@ fn parse_one_eof_fn(token_count: usize) -> Item {
             let Some(&current_state) = current_state else { return ParseOneEofResult::Error; };
             let id = #token_count;
             let action = &ACTION_TABLE[current_state][id];
-            let Some(action) = action else { panic!("couldn't parse!") };
+            let Some(action) = action else { return ParseOneEofResult::Error; };
             match action {
                 Action::Reduce(prod_name) => {
                     let head = prod_name.reduce(ctx, stacks);
                     let current_state = *stacks.state_stack.last().unwrap();
                     let id = head.id();
-                    let Some(new_state) = &GOTO_TABLE[current_state][id] else { panic!("couldn't parse") };
+                    let Some(new_state) = &GOTO_TABLE[current_state][id] else { return ParseOneEofResult::Error; };
                     stacks.state_stack.push(*new_state);
                     stacks.symbol_stack.push(Symbol::NonTerminal(head));
                     ParseOneEofResult::Reduced
@@ -390,16 +395,27 @@ fn parse_one_eof_fn(token_count: usize) -> Item {
 
 fn parse_fn(start_symbol: &Ident) -> Item {
     parse_quote! {
-        pub fn parse(mut ctx: __CompilerContext, token_stream: impl IntoIterator<Item = Token>) -> #start_symbol {
+        pub fn parse(mut ctx: __CompilerContext, token_stream: impl IntoIterator<Item = Token>) -> Result<#start_symbol, Stacks> {
             let mut stacks = Stacks::new();
             for mut token in token_stream.into_iter() {
-                while let ParseOneResult::Reduced(curr) = parse_one(&mut ctx, &mut stacks, token) {
-                    token = curr;
+                loop {
+                    let parse_one_result = parse_one(&mut ctx, &mut stacks, token);
+                    match parse_one_result {
+                        ParseOneResult::Reduced(curr) => {
+                            token = curr;
+                        }
+                        ParseOneResult::Error => {
+                            return Err(stacks);
+                        }
+                        ParseOneResult::Shifted => {
+                            break;
+                        }
+                    }
                 }
             }
             while let ParseOneEofResult::Reduced = parse_one_eof(&mut ctx, &mut stacks) {}
             let Some(Symbol::NonTerminal(NonTerminal::#start_symbol (res))) = stacks.symbol_stack.pop() else { panic!() };
-            res
+            Ok(res)
         }
     }
 }

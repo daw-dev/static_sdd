@@ -90,5 +90,10 @@ fn main() {
             Token::ClosePar(ClosePar),
         ],
     );
-    println!("{t:?}")
+    match t {
+        Ok(res) => {
+            println!("{res:?}");
+        }
+        Err(stacks) => println!("{stacks}"),
+    }
 }

@@ -53,7 +53,7 @@ fn main() {
             Token::Number(1),
             Token::ClosedPar(ClosedPar),
         ],
-    );
+    ).ok().expect("couldn't parse");
 
     println!("result is {res}");
 }

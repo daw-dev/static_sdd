@@ -205,10 +205,11 @@ impl<'a> SymbolicGrammar<'a> {
                     let productions = self.get_productions_with_head(*non_terminal);
                     for prod in productions
                         .into_iter()
-                        .filter(|prod| visited.insert(prod.id()))
-                        .collect_vec()
-                        .into_iter()
                     {
+                        if visited.contains(&prod.id()) {
+                            continue;
+                        }
+                        visited.insert(prod.id());
                         let body = prod.body();
                         let firsts = self.first_set_helper(body, visited);
                         res.tokens.extend(firsts.tokens);

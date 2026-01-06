@@ -353,7 +353,8 @@ impl<'a> LalrAutomaton<'a> {
                 }
             }
 
-            for (token, target) in token_transitions.iter().flatten().enumerate() {
+            for (token, target) in token_transitions.iter().enumerate() {
+                let Some(target) = target else { continue; };
                 let entry = &mut action_table[(state_id, SymbolicSymbol::Token(token))];
                 if let Some(reduce) = entry.take() {
                     eprintln!("shift/reduce conflict");
