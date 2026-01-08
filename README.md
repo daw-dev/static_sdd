@@ -224,6 +224,18 @@ mod daw_lang {
 
 Ideally, this would also speed-up parsing because each grammar uses different and smaller parsing tables.
 
+#### EBNF Syntax
+
+The library will also allow to use extended bnf form to simplify some productions allowing to use symbols
+such as * for repetitions, ? for optional symbols and | for union types (in that case the user also needs
+to specify the name of the enum that will be created):
+
+```rust
+ebnf!(Prods, A -> (AOrB { A | B }, C*, D?), |(a_or_b: AOrB, c: Vec<C>, d: Option<D>));
+```
+
+Such `ebnf!` macro will quietly create multiple simpler productions.
+
 #### Generic Symbols
 
 I'm not sure it's possible, but it would be cool to allow something like the following:
