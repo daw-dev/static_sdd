@@ -232,6 +232,7 @@ to specify the name of the enum that will be created):
 
 ```rust
 ebnf!(Prods, A -> (AOrB { A | B }, C*, D?), |(a_or_b: AOrB, c: Vec<C>, d: Option<D>));
+// A produces: either A or B followed by a sequence of Cs and an optional D
 ```
 
 Such `ebnf!` macro will quietly create multiple simpler productions.
