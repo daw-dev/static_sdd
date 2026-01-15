@@ -290,6 +290,7 @@ fn table_const(
 
 fn stacks_struct() -> Vec<Item> {
     let file: syn::File = parse_quote! {
+        #[derive(Debug)]
         pub struct Stacks {
             pub state_stack: Vec<usize>,
             pub symbol_stack: Vec<Symbol>,

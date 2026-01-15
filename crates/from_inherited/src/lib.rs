@@ -49,10 +49,11 @@ impl<Inh: 'static, Syn: 'static> FromInherited<Inh, Syn> {
         FromInherited::new(|t| mapper(self.resolve(t)))
     }
 
-    pub fn synthesize<G>(self, mapper: G) -> FromInherited<Inh, Syn>
+    pub fn synthesize<G, ParentSyn>(self, mapper: G) -> FromInherited<Inh, ParentSyn>
     where
         Inh: Clone,
-        G: FnOnce(Inh, Syn) -> Syn + 'static,
+        ParentSyn: 'static,
+        G: FnOnce(Inh, Syn) -> ParentSyn + 'static,
     {
         FromInherited::new(|input: Inh| {
             let input_clone = input.clone();
