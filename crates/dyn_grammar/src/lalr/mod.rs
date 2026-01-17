@@ -154,6 +154,7 @@ impl LalrItem {
 struct LalrState {
     kernel: HashSet<LalrItem>,
     marked: bool,
+    epsilon_items: HashSet<LalrItem>,
 }
 
 impl PartialEq for LalrState {
@@ -167,6 +168,7 @@ impl LalrState {
         Self {
             kernel,
             marked: false,
+            epsilon_items: HashSet::new(),
         }
     }
 
@@ -256,7 +258,7 @@ impl<'a> LalrAutomaton<'a> {
                     .arity()
                     == 0
             }) {
-                state.kernel.insert(eps_item.clone());
+                state.epsilon_items.insert(eps_item.clone());
             }
             let mut token_transitions = vec![HashSet::new(); self.grammar.token_count()];
             let mut non_terminal_transitions =
@@ -345,6 +347,7 @@ impl<'a> LalrAutomaton<'a> {
                 .kernel
                 .iter()
                 .filter(|item| item.is_reducing(self.grammar))
+                .chain(state.epsilon_items.iter())
             {
                 for symbol in reducing_item.lookahead_node.compute_lookahead().into_iter() {
                     let action = if reducing_item.production_id == usize::MAX {

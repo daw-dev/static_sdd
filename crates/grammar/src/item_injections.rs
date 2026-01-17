@@ -19,7 +19,7 @@ pub fn inject_items(
 ) {
     eprintln!("{enriched_grammar}");
     let symbolic_grammar = SymbolicGrammar::from(&enriched_grammar);
-
+    eprintln!("{symbolic_grammar}");
     let automaton = LalrAutomaton::compute(&symbolic_grammar);
     eprintln!("{automaton}");
     let (action_table, goto_table) = automaton.generate_tables();
