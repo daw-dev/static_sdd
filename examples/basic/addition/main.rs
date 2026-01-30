@@ -22,7 +22,7 @@ mod addition_grammar {
 use addition_grammar::*;
 
 fn main() {
-    let res = Parser::lex_parse("3+2");
+    let res = Parser::lex_parse("3++2");
     match res {
         Ok(res) => println!("{res}"),
         Err(err) => println!("error: {err:?}"),

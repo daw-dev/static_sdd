@@ -35,7 +35,7 @@ pub fn inject_items(
     items_to_add.extend(non_terminal_enum(enriched_grammar.non_terminals(), enriched_grammar.start_symbol()));
     items_to_add.extend(production_enum(enriched_grammar.productions()));
     eprintln!("added enums");
-    items_to_add.extend(tables_as_consts(&enriched_grammar, states_count, token_table, eof_table, non_terminal_table));
+    items_to_add.extend(const_tables(&enriched_grammar, states_count, token_table, eof_table, non_terminal_table));
     items_to_add.push(parser(enriched_grammar.start_symbol()));
 
     for item in items_to_add.iter() {
@@ -240,7 +240,7 @@ fn production_enum(productions: &[EnrichedProduction]) -> Vec<Item> {
     file.items
 }
 
-fn tables_as_consts(
+fn const_tables(
     enriched_grammar: &EnrichedGrammar,
     state_count: usize,
     token_table: TokenTable,
@@ -337,15 +337,34 @@ fn tables_as_consts(
     file.items
 }
 
+fn match_table(
+    enriched_grammar: &EnrichedGrammar,
+    state_count: usize,
+    token_table: TokenTable,
+    eof_table: EofTable,
+    non_terminal_table: NonTerminalTable,
+) -> Vec<Item> {
+    let file: syn::File = parse_quote!{
+        #[derive(Debug)]
+        pub struct Tables;
+
+        impl parser::Tables<NonTerminal, Token, ProductionName> for Tables {
+            fn query_token_table(current_state: usize, current_token: &Token) -> Option<parser::TokenAction<ProductionName>> {
+                Tables::TOKEN_TABLE[current_state][current_token.id()].clone()
+            }
+            fn query_eof_table(current_state: usize) -> Option<parser::EofAction<ProductionName>> {
+                Tables::EOF_TABLE[current_state].clone()
+            }
+            fn query_goto_table(current_state: usize, non_terminal: &NonTerminal) -> Option<usize> {
+                Tables::NON_TERMINAL_TABLE[current_state][non_terminal.id()].clone()
+            }
+        }
+    };
+    file.items
+}
+
 fn parser(start_symbol: &EnrichedNonTerminal) -> Item {
     let start_symbol = start_symbol.ident();
     parse_quote!(pub type Parser = parser::Parser<NonTerminal, Token, #start_symbol, ProductionName, Tables, __CompilerContext>;)
 }
 
-fn parse_str_fn(start_symbol: &Ident) -> Item {
-    parse_quote! {
-        pub fn parse_str(ctx: __CompilerContext, source: &<Token as Logos<'_>>::Source) -> Result<#start_symbol, Stacks> {
-            parse(ctx, Token::lexer(source).flatten())
-        }
-    }
-}
