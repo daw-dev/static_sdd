@@ -1,4 +1,4 @@
-# Static SDD
+# Semasia
 
 A compile-time in-place parser generator written in rust.
 
