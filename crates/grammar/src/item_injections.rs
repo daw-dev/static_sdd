@@ -45,7 +45,6 @@ pub fn inject_items(
 
     match internal_mod_name {
         Some(name) => items.push(parse_quote! {
-                #[doc("generated using the static_sdd library")]
                 pub mod #name {
                     use super::*;
 
@@ -96,7 +95,6 @@ fn token_enum(tokens: &[EnrichedToken]) -> Vec<Item> {
     let tokens: Vec<_> = tokens.iter().map(|token| token.ident()).collect();
     let counter = 0usize..;
     let file: syn::File = parse_quote! {
-        #[doc("Enum that contains every token")]
         #[derive(Logos)]
         #[logos(skip r"[ \t\n\f]+")]
         pub enum Token {

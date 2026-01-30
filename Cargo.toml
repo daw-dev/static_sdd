@@ -11,9 +11,9 @@ members = ["crates/*"]
 grammar = { path = "crates/grammar" }
 production = { path = "crates/production" }
 from_inherited = { path = "crates/from_inherited" }
-logos = "0.16.0"
 ebnf_proc_macro = { path = "crates/ebnf_proc_macro" }
 parser = { path = "crates/parser" }
+logos = "0.16.0"
 
 [[example]]
 name = "basic-addition"

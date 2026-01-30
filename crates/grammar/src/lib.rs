@@ -12,14 +12,20 @@ mod item_injections;
 pub fn grammar(attr: TokenStream, item: TokenStream) -> TokenStream {
     let internal_mod_name = syn::parse::<Ident>(attr).ok();
     if let Ok(mut module) = syn::parse::<ItemMod>(item.clone()) {
-        let (_, items) = module.content.as_mut().expect("grammar module must be inline (contain braces)");
+        let (_, items) = module
+            .content
+            .as_mut()
+            .expect("grammar module must be inline (contain braces)");
 
         let enriched_grammar = extract_grammar(items);
         inject_items(internal_mod_name, items, enriched_grammar);
 
         quote! { #module }.into()
     } else if let Ok(File { items, .. }) = &mut syn::parse(item) {
-        todo!()
+        let enriched_grammar = extract_grammar(items);
+        inject_items(internal_mod_name, items, enriched_grammar);
+
+        quote! { #(#items)* }.into()
     } else {
         emit_call_site_error!("a grammar is either an inline module or a file");
         panic!()
@@ -37,9 +43,18 @@ macro_rules! dummy_attribute {
 }
 
 dummy_attribute!(token, "type aliases, structs, enums or use directives");
-dummy_attribute!(start_symbol, "type aliases, structs, enums or use directives");
-dummy_attribute!(non_terminal, "type aliases, structs, enums or use directives");
+dummy_attribute!(
+    start_symbol,
+    "type aliases, structs, enums or use directives"
+);
+dummy_attribute!(
+    non_terminal,
+    "type aliases, structs, enums or use directives"
+);
 dummy_attribute!(left_associative, "production macros");
 dummy_attribute!(right_associative, "production macros");
 dummy_attribute!(precedence, "production marcos");
-dummy_attribute!(context, "ONLY ONE type alias, struct, enum or use directive");
+dummy_attribute!(
+    context,
+    "ONLY ONE type alias, struct, enum or use directive"
+);

@@ -12,7 +12,7 @@ macro_rules! production {
         #[doc = concat!("Production: `", stringify!($head), " -> ", stringify!($body), "`")]
         pub struct $name;
 
-        impl static_sdd::Production for $name {
+        impl semasia::Production for $name {
             type Head = $head;
             type Body = $body;
             type Ctx = __CompilerContext;
@@ -26,7 +26,7 @@ macro_rules! production {
         #[doc = concat!("Production: `", stringify!($head), " -> ", stringify!($body), "`")]
         pub struct $name;
 
-        impl static_sdd::Production for $name {
+        impl semasia::Production for $name {
             type Head = $head;
             type Body = $body;
             type Ctx = __CompilerContext;
@@ -40,7 +40,7 @@ macro_rules! production {
         #[doc = concat!("Production: `", stringify!($head), " -> ", stringify!($body), "`")]
         pub struct $name;
 
-        impl static_sdd::Production for $name {
+        impl semasia::Production for $name {
             type Head = $head;
             type Body = $body;
             type Ctx = __CompilerContext;

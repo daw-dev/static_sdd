@@ -1,4 +1,4 @@
-use static_sdd::*;
+use semasia::*;
 
 #[grammar]
 mod expressions {
