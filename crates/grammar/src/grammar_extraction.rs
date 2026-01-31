@@ -231,7 +231,7 @@ fn extract_ebnf_production(item: &mut Item) -> Option<EbnfProduction> {
     match item {
         Item::Macro(mac) if mac.mac.path.is_ident("ebnf") => {
             mac.mac.parse_body::<EbnfProduction>().ok()
-        },
+        }
         _ => None,
     }
 }

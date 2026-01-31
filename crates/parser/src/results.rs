@@ -1,3 +1,6 @@
+use std::fmt::{Display, Pointer};
+
+use itertools::Itertools;
 use logos::Logos;
 
 use crate::{Parser, Reduce, Tables};
@@ -65,6 +68,25 @@ impl<
     }
 }
 
+impl<
+    NonTerminal: Into<StartSymbol> + Display,
+    Token: Display,
+    StartSymbol,
+    Prod: Reduce<NonTerminal, Token, Ctx>,
+    Tab: Tables<NonTerminal, Token, Prod>,
+    Ctx,
+> Display for ParseError<NonTerminal, Token, StartSymbol, Prod, Tab, Ctx>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ParseError: after [{}] expected any of [{}]",
+            self.parser.stacks.symbol_stack.iter().format(", "),
+            Tab::tokens_in_state(self.parser.stacks.current_state()).iter().format(", ")
+        )
+    }
+}
+
 #[derive(Debug)]
 pub struct LexError<
     'source,
@@ -112,4 +134,21 @@ pub enum LexParseError<
 > {
     LexError(LexError<'source, NonTerminal, Token, StartSymbol, Prod, Tab, Ctx>),
     ParseError(ParseError<NonTerminal, Token, StartSymbol, Prod, Tab, Ctx>),
+}
+
+impl<
+    'source,
+    NonTerminal: Into<StartSymbol> + Display,
+    Token: Logos<'source> + Display,
+    StartSymbol,
+    Prod: Reduce<NonTerminal, Token, Ctx>,
+    Tab: Tables<NonTerminal, Token, Prod>,
+    Ctx,
+> Display for LexParseError<'source, NonTerminal, Token, StartSymbol, Prod, Tab, Ctx> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LexParseError::LexError(lex_error) => lex_error.fmt(f),
+            LexParseError::ParseError(parse_error) => Display::fmt(parse_error, f),
+        }
+    }
 }

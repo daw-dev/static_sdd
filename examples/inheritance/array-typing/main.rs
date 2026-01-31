@@ -1,4 +1,4 @@
-use static_sdd::*;
+use semasia::*;
 
 #[grammar]
 mod arrays {
@@ -62,6 +62,6 @@ fn array_test() {
 }
 
 fn main() {
-    let res = arrays::parse_str((), "int[2][3]").expect("couldn't parse");
+    let res = arrays::Parser::lex_parse("int[2][3]").expect("couldn't parse");
     println!("{res:?}");
 }

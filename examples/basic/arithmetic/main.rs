@@ -36,10 +36,14 @@ mod expressions {
     production!(Parenthesis, Factor -> (OpenPar, Expression, ClosedPar), |(_, e, _)| e);
     production!(ActualNumber, Factor -> Number);
 }
+
 use expressions::*;
 
 fn main() {
-    let res = Parser::lex_parse_with_ctx((), "(1 + 2) * 3 + 4").expect("couldn't parse");
+    let res = Parser::lex_parse("(1 + 2) * 3 + 4");
 
-    println!("result is {res}");
+    match res {
+        Ok(res) => println!("result is {res}"),
+        Err(err) => println!("{err}"),
+    }
 }

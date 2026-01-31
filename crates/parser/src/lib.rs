@@ -3,10 +3,10 @@ use crate::results::{
     ParseTokenError,
 };
 use logos::Logos;
-use std::marker::PhantomData;
+use std::{fmt::Display, marker::PhantomData};
 
 mod actions;
-mod results;
+pub mod results;
 mod traits;
 
 pub use actions::*;
@@ -16,6 +16,15 @@ pub use traits::*;
 pub enum Symbol<NonTerminal, Token> {
     NonTerminal(NonTerminal),
     Token(Token),
+}
+
+impl<NonTerminal: Display, Token: Display> Display for Symbol<NonTerminal, Token> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Symbol::NonTerminal(nt) => write!(f, "NonTerminal({nt})"),
+            Symbol::Token(tok) => write!(f, "Token({tok})"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -177,7 +186,7 @@ impl<
 
     pub fn lex_parse_with_ctx<'source>(
         ctx: Ctx,
-        source: &'source <Token as Logos<'source>>::Source,
+        source: &'source Token::Source,
     ) -> Result<StartSymbol, LexParseError<'source, NonTerminal, Token, StartSymbol, Prod, Tab, Ctx>>
     where
         Token: Logos<'source>,
@@ -233,11 +242,11 @@ impl<
     }
 
     pub fn lex_parse_default_ctx<'source>(
-        source: &'source <Token as Logos<'source>>::Source,
+        source: &'source Token::Source,
     ) -> Result<StartSymbol, LexParseError<'source, NonTerminal, Token, StartSymbol, Prod, Tab, Ctx>>
     where
         Token: Logos<'source>,
-        <Token as Logos<'source>>::Extras: Default,
+        Token::Extras: Default,
         Ctx: Default,
     {
         Self::lex_parse_with_ctx(Default::default(), source)

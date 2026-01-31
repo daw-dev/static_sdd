@@ -32,9 +32,17 @@ pub fn inject_items(
     let mut items_to_add = Vec::new();
     items_to_add.extend(uses());
     items_to_add.extend(token_enum(enriched_grammar.tokens()));
-    items_to_add.extend(non_terminal_enum(enriched_grammar.non_terminals(), enriched_grammar.start_symbol()));
+    items_to_add.extend(non_terminal_enum(
+        enriched_grammar.non_terminals(),
+        enriched_grammar.start_symbol(),
+    ));
     items_to_add.extend(production_enum(enriched_grammar.productions()));
-    items_to_add.extend(match_tables(&enriched_grammar, token_table, eof_table, non_terminal_table));
+    items_to_add.extend(match_tables(
+        &enriched_grammar,
+        token_table,
+        eof_table,
+        non_terminal_table,
+    ));
     items_to_add.push(parser(enriched_grammar.start_symbol()));
 
     for item in items_to_add.iter() {
@@ -44,12 +52,12 @@ pub fn inject_items(
 
     match internal_mod_name {
         Some(name) => items.push(parse_quote! {
-                pub mod #name {
-                    use super::*;
+            pub mod #name {
+                use super::*;
 
-                    #(#items_to_add)*
-                }
-            }),
+                #(#items_to_add)*
+            }
+        }),
         None => {
             items.extend(items_to_add);
         }
@@ -70,7 +78,7 @@ fn compiler_context(compiler_ctx: Option<&Ident>) -> Item {
 }
 
 fn uses() -> Vec<Item> {
-    let file: syn::File = parse_quote!{
+    let file: syn::File = parse_quote! {
         use logos::Logos;
         use parser::Symbol;
     };
@@ -88,7 +96,7 @@ fn token_enum(tokens: &[EnrichedToken]) -> Vec<Item> {
             dyn_grammar::token::Match::Regex(regex) => quote! {
                 #[regex(#regex, parse)]
                 #ident(#ident)
-            }
+            },
         }
     });
     let tokens: Vec<_> = tokens.iter().map(|token| token.ident()).collect();
@@ -131,11 +139,15 @@ fn token_enum(tokens: &[EnrichedToken]) -> Vec<Item> {
     file.items
 }
 
-fn non_terminal_enum(non_terminals: &[EnrichedNonTerminal], start_symbol: &EnrichedNonTerminal) -> Vec<Item> {
+fn non_terminal_enum(
+    non_terminals: &[EnrichedNonTerminal],
+    start_symbol: &EnrichedNonTerminal,
+) -> Vec<Item> {
     let start_symbol = start_symbol.ident();
     let non_terminals = non_terminals
         .iter()
-        .map(|non_terminal| non_terminal.ident()).collect_vec();
+        .map(|non_terminal| non_terminal.ident())
+        .collect_vec();
     let counter = 0usize..;
     let file: syn::File = parse_quote! {
         pub enum NonTerminal {
@@ -285,25 +297,27 @@ fn const_tables(
                 let prod_name = actual_production.ident();
                 parse_quote!(parser::EofAction::Reduce(ProductionName::#prod_name))
             }
-            dyn_grammar::parsing::action::EofAction::Accept => parse_quote!(parser::EofAction::Accept),
+            dyn_grammar::parsing::action::EofAction::Accept => {
+                parse_quote!(parser::EofAction::Accept)
+            }
         }) {
-                Some(expr) => parse_quote!(Some(#expr)),
-                None => parse_quote!(None),
-            }
-        }
-    );
-
-    let gotos = non_terminal_table.table.into_iter().map::<syn::Expr, _>(|row| {
-        let row = row.into_iter().map::<syn::Expr, _>(|state| {
-            match state {
-                Some(expr) => parse_quote!(Some(#expr)),
-                None => parse_quote!(None),
-            }
-        });
-        parse_quote! {
-            [#(#row),*]
+            Some(expr) => parse_quote!(Some(#expr)),
+            None => parse_quote!(None),
         }
     });
+
+    let gotos = non_terminal_table
+        .table
+        .into_iter()
+        .map::<syn::Expr, _>(|row| {
+            let row = row.into_iter().map::<syn::Expr, _>(|state| match state {
+                Some(expr) => parse_quote!(Some(#expr)),
+                None => parse_quote!(None),
+            });
+            parse_quote! {
+                [#(#row),*]
+            }
+        });
 
     let file: syn::File = parse_quote! {
         #[derive(Debug)]
@@ -313,7 +327,7 @@ fn const_tables(
             pub const TOKEN_TABLE: [[Option<parser::TokenAction<ProductionName>>; #token_count]; #state_count] = [
                 #(#token_actions,)*
             ];
-            
+
             pub const EOF_TABLE: [Option<parser::EofAction<ProductionName>>; #state_count] = [
                 #(#eof_actions,)*
             ];
@@ -344,42 +358,102 @@ fn match_tables(
     eof_table: EofTable,
     non_terminal_table: NonTerminalTable,
 ) -> Vec<Item> {
-    let token_table_patts = token_table.table.into_iter().enumerate()
-        .map(|(state, row)| row.into_iter().enumerate()
-            .map(move |(token_id, opt_action)| opt_action.map(move |action| (state, token_id, action)))
-        ).flatten().flatten()
+    let token_table_patts = token_table
+        .table
+        .iter()
+        .enumerate()
+        .map(|(state, row)| {
+            row.into_iter()
+                .enumerate()
+                .map(move |(token_id, opt_action)| {
+                    opt_action
+                        .as_ref()
+                        .map(move |action| (state, token_id, action))
+                })
+        })
+        .flatten()
+        .flatten()
         .map(|(state, token_id, action)| {
             let action = match action {
-                dyn_grammar::parsing::action::TokenAction::Shift(state) => quote!(parser::TokenAction::Shift(#state)),
+                dyn_grammar::parsing::action::TokenAction::Shift(state) => {
+                    quote!(parser::TokenAction::Shift(#state))
+                }
                 dyn_grammar::parsing::action::TokenAction::Reduce(production) => {
-                    let production = enriched_grammar.productions().get(production).expect("production not found").ident();
+                    let production = enriched_grammar
+                        .productions()
+                        .get(*production)
+                        .expect("production not found")
+                        .ident();
                     quote!(parser::TokenAction::Reduce(ProductionName::#production))
                 }
             };
             quote!((#state, #token_id) => Some(#action))
         });
-    
-    let eof_table_patts = eof_table.table.into_iter().enumerate()
-        .map(|(state, opt_action)| opt_action.map(move |action| {
-            let action = match action {
-                dyn_grammar::parsing::action::EofAction::Reduce(production) => {
-                    let production = enriched_grammar.productions().get(production).expect("production not found").ident();
-                    quote!(parser::EofAction::Reduce(ProductionName::#production))
-                },
-                dyn_grammar::parsing::action::EofAction::Accept => quote!(parser::EofAction::Accept),
-            };
-            quote!(#state => Some(#action))
-        })).flatten();
 
-    let non_terminal_patts = non_terminal_table.table.into_iter().enumerate()
-        .map(|(state, row)| row.into_iter().enumerate()
-            .map(move |(token_id, opt_action)| opt_action.map(move |action| (state, token_id, action)))
-        ).flatten().flatten()
-        .map(|(state, token_id, target)| {
-            quote!((#state, #token_id) => Some(#target))
+    let token_in_state_patts = token_table
+        .table
+        .iter()
+        .enumerate()
+        .map(|(state, row)| {
+            (state, 
+            row.into_iter()
+                .enumerate()
+                .map(move |(token_id, opt_action)| {
+                    opt_action.as_ref().map(|_| {
+                        enriched_grammar
+                            .tokens()
+                            .get(token_id)
+                            .unwrap()
+                            .ident()
+                            .to_string()
+                    })
+                }).flatten().collect_vec())
+        })
+        .map(|(state, tokens)| {
+            
+            quote!(#state => &[#(#tokens),*])
         });
 
-    let file: syn::File = parse_quote!{
+    let eof_table_patts = eof_table
+        .table
+        .into_iter()
+        .enumerate()
+        .map(|(state, opt_action)| {
+            opt_action.map(move |action| {
+                let action = match action {
+                    dyn_grammar::parsing::action::EofAction::Reduce(production) => {
+                        let production = enriched_grammar
+                            .productions()
+                            .get(production)
+                            .expect("production not found")
+                            .ident();
+                        quote!(parser::EofAction::Reduce(ProductionName::#production))
+                    }
+                    dyn_grammar::parsing::action::EofAction::Accept => {
+                        quote!(parser::EofAction::Accept)
+                    }
+                };
+                quote!(#state => Some(#action))
+            })
+        })
+        .flatten();
+
+    let non_terminal_patts = non_terminal_table
+        .table
+        .into_iter()
+        .enumerate()
+        .map(|(state, row)| {
+            row.into_iter()
+                .enumerate()
+                .map(move |(token_id, opt_action)| {
+                    opt_action.map(move |action| (state, token_id, action))
+                })
+        })
+        .flatten()
+        .flatten()
+        .map(|(state, token_id, target)| quote!((#state, #token_id) => Some(#target)));
+
+    let file: syn::File = parse_quote! {
         #[derive(Debug)]
         pub struct Tables;
 
@@ -402,8 +476,15 @@ fn match_tables(
                     _ => None,
                 }
             }
+            fn tokens_in_state(state: usize) -> &'static[&'static str] {
+                match state {
+                    #(#token_in_state_patts,)*
+                    _ => &[]
+                }
+            }
         }
     };
+
     file.items
 }
 
@@ -411,4 +492,3 @@ fn parser(start_symbol: &EnrichedNonTerminal) -> Item {
     let start_symbol = start_symbol.ident();
     parse_quote!(pub type Parser = parser::Parser<NonTerminal, Token, #start_symbol, ProductionName, Tables, __CompilerContext>;)
 }
-
