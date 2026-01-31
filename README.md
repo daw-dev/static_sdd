@@ -4,17 +4,18 @@ A compile-time in-place parser generator written in rust.
 
 ## Usage
 
-To specify this crate as a dependency on your project simply run `cargo add --git https://github.com/daw-dev/static_sdd` or add the follwing to your `Cargo.toml`:
+To specify this crate as a dependency on your project simply run `cargo add --git https://github.com/daw-dev/semasia`
+or add the follwing to your `Cargo.toml`:
 
 ```toml
 [dependency]
-static_sdd = { git = "https://github.com/daw-dev/static_sdd" }
+semasia = { git = "https://github.com/daw-dev/semasia" }
 ```
 
 Then, anywhere in your project:
 
 ```rust
-use static_sdd::*;
+use semasia::*;
 
 #[grammar]
 mod addition {
@@ -22,21 +23,21 @@ mod addition {
 
     #[non_terminal]
     #[start_symbol]
-    pub type E = usize;
+    pub type Expr = usize;
 
-    #[token = r"\d+"]
-    pub type Num = usize;
+    #[token(regex = r"\d+")]
+    pub type Number = usize;
 
-    #[token = "+"]
+    #[token("+")]
     pub struct Plus;
 
-    production!(P0, E -> (E, Plus, Num), |(e, _, num)| e + num);
+    production!(MoreAddition, Expr -> (Expr, Plus, Number), |(e, _, num)| e + num);
 
-    production!(P1, E -> Num);
+    production!(NoAddition, Expr -> Number);
 }
 
 fn main() {
-    let res = addition::parse("10+3+9");
+    let res = addition::Parser::lex_parse("10+3+9");
     assert_eq!(res, Ok(22));
 }
 ```
@@ -47,17 +48,17 @@ fn main() {
 
 Like every other parser generators, this tool implements:
 
-- LALR(1) parsing table generation
-- Lexing for parsing of strings
-- Conflict warnings and resolution (precedence, associativity)
-- Synthesization of attributes bottom-up during parsing
-- Everything is done at compilation time
+[x] LALR(1) parsing table generation
+[x] Lexing for parsing of strings using Logos
+[ ] Conflict warnings and resolution (precedence, associativity)
+[x] Synthesization of attributes bottom-up during parsing
+[x] Everything done at compilation time
 
 ### Code as grammar philosophy
 
 The main feature that separates this tool from other parser generators is how the grammar is defined: this tools
 defines a grammar through the rust programming language: a grammar is a module, symbols are types (structs, enums,
-type aliases or use directives) with either `#[non_terminal]` or `#[token = r"regex"]` and productions are created
+type aliases or use directives) with either `#[non_terminal]` or `#[token(regex = r"<regex>")]` and productions are created
 using the `production!(Ident, Head -> Body, <semantic action>)` macro, but in practice they're `impl`s of the `Production`
 trait for the newly created type at the first parameter of the production.
 
@@ -283,7 +284,7 @@ The following are rust parser generators - same category as this tool - so they 
 - bottom up parsing
 - semantic actions are called during parsing
 
-| Feature | This Tool | LALRPOP | grmtools (lrpar) | Pomelo |
+| Feature | Semasia | LALRPOP | grmtools (lrpar) | Pomelo |
 |----|----|----|----|----|
 | Philosophys| Use rust type system and module system to define a grammar | Rust version of bison | Bison-compatible parser generator in rust | Rust version of lemon |
 | Algorithms| LALR(1) | LALR(1)/LR(1) | LR(1)/GLR | LALR(1) (lemon) |
