@@ -77,10 +77,10 @@ mod sat {
 use sat::*;
 
 fn main() {
-    let res = Parser::lex_parse_with_ctx((), "a -> b & c | !d");
+    let res = Parser::lex_parse("a -> b & c | !d");
 
     match res {
-        Ok(res) => println!("second result is {res:?}"),
+        Ok(res) => println!("{res:?}"),
         Err(err) => println!("{err:?}"),
     }
 }

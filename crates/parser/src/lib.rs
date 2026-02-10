@@ -268,7 +268,7 @@ impl<
     }
 
     pub fn lex_parse<'source>(
-        source: &'source <Token as Logos<'source>>::Source,
+        source: &'source Token::Source,
     ) -> Result<StartSymbol, LexParseError<'source, NonTerminal, Token, StartSymbol, Prod, Tab, ()>>
     where
         Token: Logos<'source>,
