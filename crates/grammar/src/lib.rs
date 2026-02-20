@@ -55,44 +55,7 @@ dummy_attribute!(
 dummy_attribute!(left_associative, "production macros");
 dummy_attribute!(right_associative, "production macros");
 dummy_attribute!(precedence, "production marcos");
-
-fn extract_ident_from_use_tree(tree: &syn::UseTree) -> Option<&Ident> {
-    match tree {
-        syn::UseTree::Path(use_path) => extract_ident_from_use_tree(&use_path.tree),
-        syn::UseTree::Name(use_name) => Some(&use_name.ident),
-        syn::UseTree::Rename(use_rename) => Some(&use_rename.rename),
-        syn::UseTree::Group(syn::UseGroup { items, .. }) if items.len() == 1 => {
-            extract_ident_from_use_tree(items.first().unwrap())
-        }
-        _ => None,
-    }
-}
-
-fn extract_info(item: &Item) -> Option<&Ident> {
-    match item {
-        Item::Type(syn::ItemType { ident, .. })
-        | Item::Struct(syn::ItemStruct { ident, .. })
-        | Item::Enum(syn::ItemEnum { ident, .. }) => Some(ident),
-        Item::Use(syn::ItemUse { tree, .. }) => extract_ident_from_use_tree(tree),
-        _ => None,
-    }
-}
-
-#[proc_macro_attribute]
-#[proc_macro_error]
-pub fn context(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let item: Item = syn::parse(item).expect("can't parse context");
-
-    match extract_info(&item) {
-        Some(ident) => quote! {
-            #item
-
-            type __CompilerContext = #ident;
-        }
-        .into(),
-        None => {
-            emit_call_site_error!("context has to be a struct, an enum or a use statement");
-            panic!()
-        }
-    }
-}
+dummy_attribute!(
+    context,
+    "ONLY ONE type alias, struct, enum or use directive"
+);

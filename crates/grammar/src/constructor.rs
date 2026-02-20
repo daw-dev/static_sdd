@@ -1,9 +1,9 @@
-use dyn_grammar::{EnrichedGrammar, lalr::LalrAutomaton, symbolic_grammar::SymbolicGrammar};
+use dyn_grammar::{EnrichedGrammar, lalr::LalrAutomaton};
 use syn::Ident;
+use std::rc::Rc;
 
-pub struct Constructor<'a> {
-    pub enriched_grammar: EnrichedGrammar,
-    pub sym_grammar: SymbolicGrammar<'a>,
-    pub automaton: LalrAutomaton<'a>,
+pub struct Constructor {
+    pub enriched_grammar: Rc<EnrichedGrammar>,
+    pub automaton: LalrAutomaton,
     pub internal_mod_name: Option<Ident>,
 }

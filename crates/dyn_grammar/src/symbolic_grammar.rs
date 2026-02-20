@@ -1,6 +1,6 @@
 use crate::{EnrichedGrammar, production::EnrichedProduction};
 use itertools::Itertools;
-use std::{collections::HashSet, fmt::Display};
+use std::{collections::HashSet, fmt::Display, rc::Rc};
 use syn::Ident;
 
 pub type SymbolicToken = usize;
@@ -78,8 +78,8 @@ pub struct SymbolicFollowSet {
 }
 
 #[derive(Debug)]
-pub struct SymbolicGrammar<'a> {
-    enriched_grammar: &'a EnrichedGrammar,
+pub struct SymbolicGrammar {
+    enriched_grammar: Rc<EnrichedGrammar>,
     token_count: usize,
     non_terminal_count: usize,
     start_symbol: SymbolicNonTerminal,
@@ -87,7 +87,7 @@ pub struct SymbolicGrammar<'a> {
     productions: Vec<SymbolicProduction>,
 }
 
-impl Display for SymbolicGrammar<'_> {
+impl Display for SymbolicGrammar {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "SymbolicGrammar {{ ")?;
         write!(
@@ -109,7 +109,7 @@ impl Display for SymbolicGrammar<'_> {
     }
 }
 
-impl<'a> SymbolicGrammar<'a> {
+impl SymbolicGrammar {
     pub fn get_production(&self, id: usize) -> Option<&SymbolicProduction> {
         if id == usize::MAX {
             return Some(&self.special_production);
@@ -199,9 +199,7 @@ impl<'a> SymbolicGrammar<'a> {
                 }
                 SymbolicSymbol::NonTerminal(non_terminal) => {
                     let productions = self.get_productions_with_head(*non_terminal);
-                    for prod in productions
-                        .into_iter()
-                    {
+                    for prod in productions.into_iter() {
                         if visited.contains(&prod.id()) {
                             continue;
                         }
@@ -226,21 +224,24 @@ impl<'a> SymbolicGrammar<'a> {
     }
 }
 
-impl<'a> From<&'a EnrichedGrammar> for SymbolicGrammar<'a> {
-    fn from(value: &'a EnrichedGrammar) -> Self {
+impl From<Rc<EnrichedGrammar>> for SymbolicGrammar {
+    fn from(value: Rc<EnrichedGrammar>) -> Self {
+        let token_count = value.tokens().len();
+        let non_terminal_count = value.non_terminals().len();
         let start_symbol = value.non_terminal_id(value.start_symbol().ident()).unwrap();
+        let productions = value
+            .productions()
+            .iter()
+            .enumerate()
+            .map(|(id, prod)| SymbolicGrammar::map_production(&value, id, prod))
+            .collect();
         Self {
             enriched_grammar: value,
-            token_count: value.tokens().len(),
-            non_terminal_count: value.non_terminals().len(),
+            token_count,
+            non_terminal_count,
             start_symbol,
             special_production: SymbolicProduction::special_production(start_symbol),
-            productions: value
-                .productions()
-                .iter()
-                .enumerate()
-                .map(|(id, prod)| SymbolicGrammar::map_production(value, id, prod))
-                .collect(),
+            productions,
         }
     }
 }

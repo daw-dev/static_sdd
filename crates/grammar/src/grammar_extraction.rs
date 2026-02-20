@@ -1,11 +1,16 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, rc::Rc};
 
 use dyn_grammar::{
-    EnrichedGrammar, lalr::LalrAutomaton, non_terminal::EnrichedNonTerminal, production::EnrichedBaseProduction, symbolic_grammar::{self, SymbolicGrammar}, token::{EnrichedToken, Match}
+    EnrichedGrammar,
+    lalr::LalrAutomaton,
+    non_terminal::EnrichedNonTerminal,
+    production::EnrichedBaseProduction,
+    symbolic_grammar::{self, SymbolicGrammar},
+    token::{EnrichedToken, Match},
 };
 use ebnf_parser::EbnfProduction;
 use itertools::Itertools;
-use proc_macro_error::{emit_call_site_error, emit_call_site_warning};
+use proc_macro_error::{emit_call_site_error, emit_call_site_warning, emit_error};
 use syn::{
     Attribute, Ident, Item, ItemEnum, ItemStruct, ItemType, ItemUse, LitStr, Meta, Type, UseGroup,
     UseTree,
@@ -13,16 +18,26 @@ use syn::{
 
 use crate::constructor::Constructor;
 
-impl<'a> Constructor<'a> {
+impl Constructor {
     pub fn extract(items: &mut [Item], internal_mod_name: Option<Ident>) -> Self {
         let mut tokens = Vec::new();
         let mut non_terminals = Vec::new();
         let mut ebnf_extra_non_terminals = HashSet::new();
         let mut productions = Vec::new();
         let mut start_symbol = None;
+        let mut compiler_ctx = None;
 
         for item in items.iter_mut() {
-            if let Some(token) = Self::extract_token(item) {
+            if let Some(ctx) = Self::extract_context(item) {
+                if compiler_ctx.is_some() {
+                    emit_error!(
+                        ctx.span(),
+                        "Compiler context defined for the second time here"
+                    );
+                    panic!();
+                }
+                compiler_ctx = Some(ctx);
+            } else if let Some(token) = Self::extract_token(item) {
                 tokens.push(token);
             } else if let Some((non_terminal, is_start)) = Self::extract_non_terminal(item) {
                 if is_start {
@@ -65,20 +80,20 @@ impl<'a> Constructor<'a> {
 
         non_terminals.extend(ebnf_extra_non_terminals);
 
-        let enriched_grammar = EnrichedGrammar::new(
+        let enriched_grammar = Rc::new(EnrichedGrammar::new(
+            compiler_ctx,
             non_terminals.into_iter().unique().collect(),
             tokens,
             start_symbol,
             productions,
-        );
+        ));
 
-        let sym_grammar = SymbolicGrammar::from(&enriched_grammar);
+        let sym_grammar = SymbolicGrammar::from(enriched_grammar.clone());
 
-        let automaton = LalrAutomaton::compute(&sym_grammar);
+        let automaton = LalrAutomaton::compute(sym_grammar);
 
         Self {
             enriched_grammar,
-            sym_grammar,
             automaton,
             internal_mod_name,
         }
@@ -106,6 +121,20 @@ impl<'a> Constructor<'a> {
             }
             _ => None,
         }
+    }
+
+    fn extract_context(item: &mut Item) -> Option<Ident> {
+        let (attrs, ident) = Self::extract_info(item)?;
+        let id = attrs.iter().enumerate().find_map(|(i, attr)| {
+            if let Meta::Path(path) = &attr.meta
+                && path.is_ident("context")
+            {
+                return Some(i);
+            }
+            None
+        })?;
+        attrs.remove(id);
+        Some(ident.clone())
     }
 
     fn extract_token(item: &mut Item) -> Option<EnrichedToken> {

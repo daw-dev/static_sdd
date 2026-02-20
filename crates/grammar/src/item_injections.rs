@@ -10,7 +10,7 @@ use syn::{Ident, Item, parse_quote};
 
 use crate::Constructor;
 
-impl<'a> Constructor<'a> {
+impl Constructor {
     pub fn inject_items(&self, items: &mut Vec<Item>) {
         let (token_table, eof_table, non_terminal_table) = self.automaton.generate_tables();
         eprintln!("{token_table}");
@@ -21,20 +21,21 @@ impl<'a> Constructor<'a> {
         items_to_add.extend(self.token_enum());
         items_to_add.extend(self.non_terminal_enum());
         items_to_add.extend(self.production_enum());
+        items_to_add.push(self.compiler_context());
         items_to_add.extend(Self::match_tables(
             &self.enriched_grammar,
             token_table,
             eof_table,
             non_terminal_table,
         ));
-        items_to_add.push(Self::parser(enriched_grammar.start_symbol()));
+        items_to_add.push(self.parser());
 
         for item in items_to_add.iter() {
             println!("------------------------------");
             println!("{}", quote!(#item));
         }
 
-        match internal_mod_name {
+        match self.internal_mod_name.as_ref() {
             Some(name) => items.push(parse_quote! {
                 pub mod #name {
                     use super::*;
@@ -223,6 +224,20 @@ impl<'a> Constructor<'a> {
             }
         };
         file.items
+    }
+
+    fn compiler_context(&self) -> Item {
+        let compiler_ctx = self.enriched_grammar.context();
+        compiler_ctx
+            .as_ref()
+            .map(|ctx| {
+                parse_quote! {
+                    type __CompilerContext = #ctx;
+                }
+            })
+            .unwrap_or(parse_quote! {
+                type __CompilerContext = ();
+            })
     }
 
     fn const_tables(

@@ -214,14 +214,14 @@ impl LalrState {
     }
 }
 
-pub struct LalrAutomaton<'a> {
-    grammar: &'a SymbolicGrammar<'a>,
+pub struct LalrAutomaton {
+    grammar: SymbolicGrammar,
     states: Vec<LalrState>,
     transitions: TransitionTables,
 }
 
-impl<'a> LalrAutomaton<'a> {
-    pub fn compute(grammar: &'a SymbolicGrammar) -> Self {
+impl LalrAutomaton {
+    pub fn compute(grammar: SymbolicGrammar) -> Self {
         let mut automaton = Self {
             grammar,
             states: Vec::new(),
@@ -241,7 +241,7 @@ impl<'a> LalrAutomaton<'a> {
 
         while let Some(state) = self.states.iter_mut().find(|state| !state.marked) {
             state.marked = true;
-            let closure = state.closure(&mut counter, self.grammar);
+            let closure = state.closure(&mut counter, &self.grammar);
             for eps_item in closure.iter().filter(|item| {
                 self.grammar
                     .get_production(item.production_id)
@@ -255,8 +255,8 @@ impl<'a> LalrAutomaton<'a> {
             let mut non_terminal_transitions =
                 vec![HashSet::new(); self.grammar.non_terminal_count()];
             for (symbol, mut item) in closure.into_iter().filter_map(|item| {
-                (!item.is_reducing(self.grammar))
-                    .then(|| (item.pointed_symbol(self.grammar).unwrap(), item))
+                (!item.is_reducing(&self.grammar))
+                    .then(|| (item.pointed_symbol(&self.grammar).unwrap(), item))
             }) {
                 item.move_marker();
                 match symbol {
@@ -343,7 +343,7 @@ impl<'a> LalrAutomaton<'a> {
             for reducing_item in state
                 .kernel
                 .iter()
-                .filter(|item| item.is_reducing(self.grammar))
+                .filter(|item| item.is_reducing(&self.grammar))
                 .chain(state.epsilon_items.iter())
             {
                 let lookahead = reducing_item.lookahead_node.compute_lookahead();
@@ -396,7 +396,13 @@ impl<'a> LalrAutomaton<'a> {
     }
 }
 
-impl Display for LalrAutomaton<'_> {
+impl From<SymbolicGrammar> for LalrAutomaton {
+    fn from(value: SymbolicGrammar) -> Self {
+        Self::compute(value)
+    }
+}
+
+impl Display for LalrAutomaton {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "SlrAutomaton:")?;
         writeln!(f, "States:")?;

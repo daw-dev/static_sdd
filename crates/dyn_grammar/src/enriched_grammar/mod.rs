@@ -16,6 +16,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct EnrichedGrammar {
+    context: Option<Ident>,
     non_terminals: Vec<EnrichedNonTerminal>,
     tokens: Vec<EnrichedToken>,
     start_symbol: EnrichedNonTerminal,
@@ -24,6 +25,7 @@ pub struct EnrichedGrammar {
 
 impl EnrichedGrammar {
     pub fn new(
+        context: Option<Ident>,
         non_terminals: Vec<EnrichedNonTerminal>,
         tokens: Vec<EnrichedToken>,
         start_symbol: EnrichedNonTerminal,
@@ -34,11 +36,16 @@ impl EnrichedGrammar {
             .map(|prod| prod.into_production(&tokens, &non_terminals))
             .collect();
         Self {
+            context,
             non_terminals,
             tokens,
             start_symbol,
             productions,
         }
+    }
+
+    pub fn context(&self) -> Option<&Ident> {
+        self.context.as_ref()
     }
 
     pub fn tokens(&self) -> &Vec<EnrichedToken> {
@@ -71,6 +78,11 @@ impl EnrichedGrammar {
 impl Display for EnrichedGrammar {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "EnrichedGrammar {{ ")?;
+        write!(f, "context: ")?;
+        match self.context.as_ref() {
+            Some(ctx) => write!(f, "Some({}), ", ctx)?,
+            None => write!(f, "None, ")?,
+        }
         write!(
             f,
             "non_terminals: [{}], tokens: [{}], ",
