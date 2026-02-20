@@ -1,4 +1,4 @@
-use static_sdd::*;
+use semasia::*;
 
 #[grammar]
 mod ast {
@@ -35,7 +35,7 @@ mod ast {
 }
 
 fn main() {
-    let res = ast::parse_str((), "1+2+3").expect("couldn't parse");
+    let res = ast::Parser::lex_parse("1+2+3").expect("couldn't parse");
     println!("result is {res:?}");
     println!("=> {}", res.compute());
 }

@@ -1,4 +1,4 @@
-use static_sdd::*;
+use semasia::*;
 
 #[grammar]
 mod balanced {
@@ -20,6 +20,6 @@ mod balanced {
 }
 
 fn main() {
-    let res = balanced::parse_str((), "aaabbb").expect("couldn't parse");
+    let res = balanced::Parser::lex_parse("aaabbb").expect("couldn't parse");
     println!("{res}");
 }
